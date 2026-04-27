@@ -40,6 +40,9 @@ from sar_pattern_validation.workflow_config import (
     DEFAULT_SHOW_PLOT,
     DEFAULT_SINGLE_FIGURE_SIZE,
     LOG_LEVEL_CHOICES,
+    MEASUREMENT_AREA_MAX_X_MM,
+    MEASUREMENT_AREA_MAX_Y_MM,
+    MEASUREMENT_AREA_MIN_MM_EXCLUSIVE,
     PlottingConfig,
     WorkflowConfig,
     default_registration_stages,
@@ -116,6 +119,17 @@ class WorkflowConfigSchema(BaseModel):
     log_level: str = DEFAULT_LOG_LEVEL
     plotting: PlottingConfigSchema = Field(default_factory=PlottingConfigSchema)
 
+    measurement_area_x_mm: float | None = Field(
+        default=None,
+        gt=MEASUREMENT_AREA_MIN_MM_EXCLUSIVE,
+        le=MEASUREMENT_AREA_MAX_X_MM,
+    )
+    measurement_area_y_mm: float | None = Field(
+        default=None,
+        gt=MEASUREMENT_AREA_MIN_MM_EXCLUSIVE,
+        le=MEASUREMENT_AREA_MAX_Y_MM,
+    )
+
     @field_validator("log_level")
     @classmethod
     def _validate_log_level(cls, value: str) -> str:
@@ -147,6 +161,28 @@ class WorkflowConfigSchema(BaseModel):
                 raise ValueError(
                     f"stages.{index}.rot_span_deg must be > 0 for rigid registration"
                 )
+        return self
+
+    @model_validator(mode="after")
+    def _derive_square_window_from_measurement_area(self) -> WorkflowConfigSchema:
+        # When the user sets the measurement area, force the plot window to a
+        # centered square sized to max(x, y) so the rectangular measurement
+        # region is inscribed (per MGD 2026-04-24 feedback, slide 3).
+        if self.measurement_area_x_mm is None and self.measurement_area_y_mm is None:
+            return self
+
+        x_mm = self.measurement_area_x_mm
+        y_mm = self.measurement_area_y_mm
+        if x_mm is None or y_mm is None:
+            raise ValueError(
+                "measurement_area_x_mm and measurement_area_y_mm must be set together"
+            )
+
+        side = float(max(x_mm, y_mm))
+        half = side / 2.0
+        self.plotting = self.plotting.model_copy(
+            update={"window_mm": (-half, half, -half, half)}
+        )
         return self
 
     def to_workflow_config(self) -> WorkflowConfig:
