@@ -283,10 +283,13 @@ def _complete_workflow(config: WorkflowConfig) -> WorkflowResult:
             distance_to_agreement_mm=float(config.distance_to_agreement),
             gamma_cap=float(config.gamma_cap),
         )
+        # Use the measured metric mask (>= noise-floor cutoff), not the support
+        # mask, so noise-filtered pixels are excluded from the gamma evaluation
+        # region. Per MGD 2026-04-24 feedback (slide 6).
         _apply_roi_policy(
             evaluator,
             reference_mask_u8=reference_mask_u8,
-            measured_mask_u8=measured_support_u8,
+            measured_mask_u8=measured_mask_u8,
             policy=config.evaluation_roi_policy,
         )
 

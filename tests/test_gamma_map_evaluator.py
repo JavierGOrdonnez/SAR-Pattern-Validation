@@ -260,6 +260,52 @@ def test_evaluation_mask_reference_only_is_used_as_is():
     assert np.array_equal(evaluator.evaluation_mask, mask)
 
 
+def test_evaluation_mask_excludes_noise_filtered_pixels():
+    """
+    Noise-filtered (sub-cutoff) pixels must be absent from the gamma evaluation
+    mask. Per MGD 2026-04-24 feedback (Task 6.4): the mask must exclude both
+    unmeasured points AND points zeroed by the noise filter.
+
+    Construct a measured mask that has a "noise hole" (a region where SAR fell
+    below the cutoff and was zeroed) and assert those pixels do not appear in
+    evaluator.evaluation_mask.
+    """
+    h, w = 64, 64
+    ref = np.ones((h, w), dtype=np.float32)
+    meas = np.ones((h, w), dtype=np.float32)
+
+    ref_img = _sitk_from_array(ref, spacing_m=(0.001, 0.001))
+    meas_img = _sitk_from_array(meas, spacing_m=(0.001, 0.001))
+
+    # Reference is fully active; measured has a noise-filtered region carved
+    # out of an otherwise active mask.
+    ref_mask = np.ones((h, w), dtype=bool)
+    meas_mask = np.ones((h, w), dtype=bool)
+    noise_hole = np.s_[20:40, 20:40]
+    meas_mask[noise_hole] = False
+
+    ref_mask_u8 = _u8_mask_from_bool(ref_mask, ref_img)
+    meas_mask_u8 = _u8_mask_from_bool(meas_mask, meas_img)
+
+    evaluator = GammaMapEvaluator(
+        reference_sar_linear=ref_img,
+        measured_sar_linear=meas_img,
+        reference_to_measured_transform=_identity_transform(),
+        dose_to_agreement_percent=5.0,
+        distance_to_agreement_mm=2.0,
+    )
+    evaluator.reference_mask_u8 = ref_mask_u8
+    evaluator.measured_mask_u8 = meas_mask_u8
+    evaluator.compute()
+
+    assert evaluator.evaluation_mask is not None
+    # No noise-hole pixel should appear in the evaluation mask.
+    assert not evaluator.evaluation_mask[noise_hole].any()
+    # The complement of the noise hole is fully evaluated.
+    expected = ref_mask & meas_mask
+    assert np.array_equal(evaluator.evaluation_mask, expected)
+
+
 def test_evaluation_mask_intersection_reference_and_resampled_measured():
     """
     If both masks are provided:
