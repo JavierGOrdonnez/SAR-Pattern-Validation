@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import json
 import logging
 import sys
@@ -46,6 +47,38 @@ def _configure_logging() -> None:
     )
 
 
+def _parse_report_args(args_list: list[str]) -> tuple[argparse.Namespace, list[str]]:
+    """
+    Extract report-generation args from argv, returning (report_ns, remaining_args).
+    The remaining_args are passed unchanged to complete_workflow.
+    """
+    p = argparse.ArgumentParser(add_help=False)
+    p.add_argument("--report_dir", type=str, default=None)
+    p.add_argument("--report_antenna_type", type=str, default="dipole")
+    p.add_argument("--report_frequency_mhz", type=int, default=0)
+    p.add_argument("--report_distance_mm", type=int, default=0)
+    p.add_argument("--report_mass_g", type=int, default=0)
+    return p.parse_known_args(args_list)
+
+
+def _build_config_for_report(remaining_args: list[str]):
+    """Reconstruct a minimal WorkflowConfig from the workflow CLI args."""
+    from sar_pattern_validation.workflow_config import WorkflowConfig
+
+    p = argparse.ArgumentParser(add_help=False)
+    p.add_argument("--measured_file_path", type=str, default="")
+    p.add_argument("--reference_file_path", type=str, default="")
+    p.add_argument("--power_level_dbm", type=float, default=0.0)
+    p.add_argument("--noise_floor", type=float, default=0.01)
+    ns, _ = p.parse_known_args(remaining_args)
+    return WorkflowConfig(
+        measured_file_path=ns.measured_file_path,
+        reference_file_path=ns.reference_file_path,
+        power_level_dbm=ns.power_level_dbm,
+        noise_floor=ns.noise_floor,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     """
     CLI entrypoint for sar-pattern-validation.
@@ -54,20 +87,42 @@ def main(argv: list[str] | None = None) -> int:
     - Runs workflow
     - Emits JSON result to stdout
     - Returns proper exit code
+
+    Optional report generation args (stripped before passing to complete_workflow):
+      --report_dir            Output directory for the LaTeX report
+      --report_antenna_type   Antenna type string (default: "dipole")
+      --report_frequency_mhz  Frequency in MHz (default: 0)
+      --report_distance_mm    Distance in mm (default: 0)
+      --report_mass_g         Averaging mass in g (default: 0)
     """
     _configure_logging()
 
     try:
-        # Pass argv through to your existing argparse logic
-        args = argv if argv is not None else sys.argv[1:]
+        args_list = argv if argv is not None else sys.argv[1:]
+        report_ns, remaining_args = _parse_report_args(args_list)
 
-        result = complete_workflow(*args)
+        result = complete_workflow(*remaining_args)
 
-        # Convert result into JSON-safe structure
-        payload = {
+        payload: dict[str, Any] = {
             "status": "success",
             "result": _serialize(result),
         }
+
+        if report_ns.report_dir:
+            from sar_pattern_validation.report import generate_report
+
+            config = _build_config_for_report(remaining_args)
+            report_tex = generate_report(
+                workflow_result=result,
+                workflow_config=config,
+                output_dir=report_ns.report_dir,
+                antenna_type=report_ns.report_antenna_type,
+                frequency_mhz=report_ns.report_frequency_mhz,
+                distance_mm=report_ns.report_distance_mm,
+                mass_g=report_ns.report_mass_g,
+            )
+            payload["report_tex_path"] = str(report_tex)
+            payload["report_dir"] = str(report_tex.parent)
 
         print(json.dumps(payload, indent=2))
         return 0
