@@ -31,6 +31,6 @@
     "power_level_dbm": 4.0
   },
   "success_thresholds": {
-    "min_pass_rate_percent": 99.0
+    "require_zero_failed_pixels": true
   }
 }

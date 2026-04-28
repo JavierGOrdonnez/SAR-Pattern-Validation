@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import subprocess  # nosec B404
 import sys
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
@@ -123,6 +124,23 @@ def main(argv: list[str] | None = None) -> int:
             )
             payload["report_tex_path"] = str(report_tex)
             payload["report_dir"] = str(report_tex.parent)
+
+            # Compile LaTeX → PDF (run twice so cross-references resolve).
+            # pdflatex is a trusted system binary invoked with a fixed argument list;
+            # cwd is the report output directory we just created.
+            pdf_path = report_tex.parent / "main.pdf"
+            try:
+                for _ in range(2):
+                    subprocess.run(  # nosec B603 B607
+                        ["pdflatex", "-interaction=nonstopmode", "main.tex"],
+                        cwd=report_tex.parent,
+                        capture_output=True,
+                        timeout=60,
+                    )
+                if pdf_path.exists():
+                    payload["report_pdf_path"] = str(pdf_path)
+            except Exception:  # nosec B110
+                pass  # PDF compilation is best-effort; .tex is always available
 
         print(json.dumps(payload, indent=2))
         return 0
