@@ -14,11 +14,11 @@
     "source_group": "expanded_measurements"
   },
   "expected": {
-    "evaluated_pixel_count": 0,
+    "evaluated_pixel_count": 2531,
     "failed_pixel_count": 0,
     "measured_pssar": 6.1,
-    "pass_rate_percent": 0.0,
-    "passed_pixel_count": 0,
+    "pass_rate_percent": 100.0,
+    "passed_pixel_count": 2531,
     "reference_pssar": 6.991846561431885,
     "scaling_error": -0.12755522501758687
   },
@@ -27,7 +27,7 @@
     "dose_to_agreement_percent": 10.0,
     "evaluation_roi_policy": "intersection",
     "gamma_cap": 2.0,
-    "noise_floor_wkg": 0.05,
+    "noise_floor_wkg": 0.01,
     "power_level_dbm": 10.0
   },
   "success_thresholds": {

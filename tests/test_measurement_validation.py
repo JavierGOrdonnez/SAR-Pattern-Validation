@@ -22,7 +22,13 @@ LOG_DIR = ARTIFACT_DIR / "logs"
 REGENERATE_ENV = "REGENERATE_MEASUREMENT_VALIDATION_ARTIFACTS"
 GAMMA_DIFF_THRESHOLD_ENV = "MEASUREMENT_GAMMA_DIFF_THRESHOLD"
 SAVE_PLOTS_ENV = "SAVE_MEASUREMENT_VALIDATION_PLOTS"
-NOISE_FLOOR_WKG = 0.05
+# Lowered from 0.05 to 0.01 (cutoff 0.1 → 0.02 W/kg) so the gamma evaluation
+# mask is non-empty for low-power cases (e.g. 900 MHz @ 10 dBm, where peak
+# pSAR is ~0.06 W/kg and the previous cutoff masked out the entire signal).
+# Per MGD 2026-04-24 feedback this value is now user-configurable per run
+# (Task 6.3, MEST). The test constant just provides a sane default for the
+# baseline regen.
+NOISE_FLOOR_WKG = 0.01
 SPACEY_MEASUREMENT_RE = re.compile(
     r"^D(?P<freq>(?:[0-9]+GHz|[0-9]+))_Flat HSL_(?P<distance_mm>[0-9]+) mm_"
     r"(?P<power_dbm>-?[0-9]+) dBm_(?P<mass>1g|10g)_(?P<index>[0-9]+)\.csv$"
