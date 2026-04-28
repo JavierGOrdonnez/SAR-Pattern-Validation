@@ -186,3 +186,46 @@ pytest tests/test_measurement_validation.py -m slow
 - Artifacts are organized by frequency for cleaner management
 - Old artifacts with "zip_" prefix are automatically detected and migrated
 - The JSON report is designed for both programmatic consumption and HTML visualization
+
+## Milestone 6 — MGD 2026-04-24 feedback (changes affecting baselines)
+
+Following [`Milestone 6 - Implement MGD Feedback - 2026-04-24`](https://github.com/JavierGOrdonnez/SAR-Pattern-Validation), the gamma comparison semantics changed in ways that affect every measurement-validation artifact. When upgrading past commit `4ed8d23` (Task 6.7), regenerate the artifacts:
+
+```bash
+REGENERATE_MEASUREMENT_VALIDATION_ARTIFACTS=1 \
+  uv run pytest -n auto --dist loadscope tests/test_measurement_validation.py --run-slow
+```
+
+### What changed
+
+- **Task 6.1 — Reversed registration direction.** The simulated (reference) sSAR is now registered onto the measured sSAR. Gamma is evaluated in the measured frame, so the failing region is visible in the original measurement coordinates. `WorkflowResult` carries the same fields, but `evaluated_pixel_count` and the spatial layout of `gamma_map` / `evaluation_mask` are now defined on the measured grid (different spacing / extent than the reference grid in many cases). The `GammaMapEvaluator` constructor argument was renamed `measured_to_reference_transform` → `reference_to_measured_transform` to match.
+- **Task 6.4 — Noise-filtered pixels excluded from the evaluation mask.** The intersection ROI policy now uses the measured *metric* mask (≥ noise-floor cutoff) rather than the *support* mask (full grid). Pass-rate values may shift on cases where significant measured pixels sat below the cutoff; those pixels are no longer counted as evaluated.
+- **Task 6.5 — Inscribed 22 × 22 mm square check.** `WorkflowResult` gained two fields: `min_inscribed_square_mm` (the threshold actually used, default 22 mm = 10 g cube face) and `mask_fits_min_inscribed_square` (boolean). When the inscribed square does not fit, the workflow logs a warning; UI surfacing through the warning channel is Task 6.6 (MEST).
+- **Task 6.7 — `*.meta.json` companion files.** A measured CSV `<stem>.csv` may be paired with `<stem>.meta.json` carrying frequency, power, measurement area, and optional noise floor. See `src/sar_pattern_validation/metadata_loader.py` for the schema. Manual entry / explicit kwargs always override metadata-derived defaults.
+- **Task 6.2 — Measurement area inputs.** `WorkflowConfig` gained `measurement_area_x_mm` and `measurement_area_y_mm` (must be set together; bounds `22 < x ≤ 600` and `22 < y ≤ 400`). When set, `plotting.window_mm` is derived as a centered square of side `max(x, y)` so the rectangular measurement region is inscribed.
+
+### Baseline regeneration: empirical deltas
+
+After running
+
+```bash
+REGENERATE_MEASUREMENT_VALIDATION_ARTIFACTS=1 \
+  uv run pytest -n auto --dist loadscope tests/test_measurement_validation.py --run-slow
+```
+
+128 of 130 cases re-emitted artifacts successfully. The two failures are degenerate measurement cases that cannot be registered after the direction reversal because the measured grid has zero spacing on one axis (only one unique x value):
+
+- `5800mhz/1dbm/5ghz_10mm_1g_1dbm_22` — no pre-existing baseline (was already an unevaluable case).
+- `5800mhz/10dbm/5ghz_10mm_10g_10dbm_12` — had a pre-existing baseline; the same dataset now triggers `ITK ERROR: Zero-valued spacing` when used as the registration `fixed` image. Robust handling of degenerate spacing is in scope for [[Milestone 5 - Improving Robustness]] / [[Task 6.6]] (warning channel).
+
+**Per-pixel evaluated counts dropped sharply across the suite** because Task 6.4 now uses the measured *metric* mask (≥ noise-floor cutoff) instead of the support mask. For low-power cases where the signal sits near the default 0.1 W/kg cutoff (`min(0.1, 2 × noise_floor)` with default `noise_floor=0.05`), the metric mask is sparse or empty:
+
+- 900 MHz @ 10 dBm cases: `evaluated_pixel_count` collapsed from ~10 000–15 000 to **0** in every case. The measured SAR is essentially below the 0.1 W/kg cutoff for these low-power runs. These cases now log a `mask_fits_min_inscribed_square=False` warning (Task 6.5) and are effectively rejected as invalid.
+- 900 MHz @ 20 dBm: ~75% reduction (e.g. 15 748 → 4 140), pass rates remain 100%.
+- 1950 MHz @ 10 dBm: ~94% reduction (e.g. 8 772 → 542), pass rates 100%.
+- 5800 MHz @ 10 dBm: ~92% reduction (e.g. 3 095 → 233), pass rates 100%.
+- 5800 MHz @ 20 dBm: ~73% reduction (e.g. 5 369 → 1 417), pass rates 100%.
+
+The reductions are the **expected consequence** of MGD's slide-6 instruction ("noise-filtered points must be excluded from the gamma mask"). For the cases that collapse to zero evaluated pixels, the proper fix is for the user to lower the noise floor via the new variable noise-floor input ([[Task 6.3 - Variable Noise Floor with Persistent History]], MEST scope) — the artifact regen reflects current default behavior at `noise_floor=0.05 W/kg`.
+
+**No case regressed from passed → failed in terms of pass rate** within the cases that still have non-zero evaluated pixels.

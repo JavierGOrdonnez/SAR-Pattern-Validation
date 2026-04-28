@@ -14,11 +14,11 @@
     "source_group": "expanded_measurements"
   },
   "expected": {
-    "evaluated_pixel_count": 7753,
+    "evaluated_pixel_count": 2256,
     "failed_pixel_count": 0,
     "measured_pssar": 39.0,
     "pass_rate_percent": 100.0,
-    "passed_pixel_count": 7753,
+    "passed_pixel_count": 2256,
     "reference_pssar": 40.39730453491211,
     "scaling_error": -0.034589053675710746
   },

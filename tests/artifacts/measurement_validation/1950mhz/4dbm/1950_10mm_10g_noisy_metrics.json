@@ -14,11 +14,11 @@
     "source_group": "robustness"
   },
   "expected": {
-    "evaluated_pixel_count": 8863,
+    "evaluated_pixel_count": 0,
     "failed_pixel_count": 0,
     "measured_pssar": 19.10914418656787,
-    "pass_rate_percent": 100.0,
-    "passed_pixel_count": 8863,
+    "pass_rate_percent": 0.0,
+    "passed_pixel_count": 0,
     "reference_pssar": 20.882190704345703,
     "scaling_error": -0.08490711261481065
   },
