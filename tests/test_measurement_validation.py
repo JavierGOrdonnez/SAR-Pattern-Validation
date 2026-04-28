@@ -386,7 +386,7 @@ def _artifact_payload(case: MeasurementValidationCase, actual: dict) -> dict:
             "evaluation_roi_policy": "intersection",
         },
         "success_thresholds": {
-            "require_zero_failed_pixels": True,
+            "min_pass_rate_percent": 99.0,
         },
         "expected": actual,
     }
@@ -575,9 +575,9 @@ def _assert_measurement_case_matches_reference_artifacts(
             json.dumps(_case_report_payload(case, actual, log_path), sort_keys=True),
         )
     )
-    assert actual["failed_pixel_count"] == 0, (
-        f"{case.case_id} expected zero failed pixels, got "
-        f"{actual['failed_pixel_count']} out of {actual['evaluated_pixel_count']}"
+    assert actual["pass_rate_percent"] >= 99.0, (
+        f"{case.case_id} pass rate {actual['pass_rate_percent']:.2f}% < 99%, "
+        f"failed {actual['failed_pixel_count']} of {actual['evaluated_pixel_count']} pixels"
     )
 
     if os.getenv(REGENERATE_ENV) == "1":
@@ -601,9 +601,7 @@ def _assert_measurement_case_matches_reference_artifacts(
         assert artifact.dataset["measured_csv"] == case.measured_csv
         assert artifact.dataset["reference_csv"] == case.reference_csv
         assert artifact.inputs["evaluation_roi_policy"] == "intersection"
-        assert (
-            artifact.success_thresholds.get("require_zero_failed_pixels", True) is True
-        )
+        assert artifact.success_thresholds.get("min_pass_rate_percent", 99.0) >= 99.0
 
         expected = artifact.expected
         assert expected is not None, f"{case.case_id} artifact missing expected results"

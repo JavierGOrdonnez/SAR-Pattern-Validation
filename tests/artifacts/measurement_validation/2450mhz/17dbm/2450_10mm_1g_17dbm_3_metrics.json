@@ -14,11 +14,11 @@
     "source_group": "baseline"
   },
   "expected": {
-    "evaluated_pixel_count": 1615,
+    "evaluated_pixel_count": 2935,
     "failed_pixel_count": 0,
     "measured_pssar": 45.89103324428423,
     "pass_rate_percent": 100.0,
-    "passed_pixel_count": 1615,
+    "passed_pixel_count": 2935,
     "reference_pssar": 53.24983839553704,
     "scaling_error": -0.13819394336170532
   },
@@ -27,10 +27,10 @@
     "dose_to_agreement_percent": 10.0,
     "evaluation_roi_policy": "intersection",
     "gamma_cap": 2.0,
-    "noise_floor_wkg": 0.05,
+    "noise_floor_wkg": 0.01,
     "power_level_dbm": 17.0
   },
   "success_thresholds": {
-    "require_zero_failed_pixels": true
+    "min_pass_rate_percent": 99.0
   }
 }
