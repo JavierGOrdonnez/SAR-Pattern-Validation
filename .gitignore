@@ -44,3 +44,5 @@ htmlcov/
 
 # ---- Data ----
 *.zip
+20260424_Gamma_task-list.pptx
+.tmp/pytest/*

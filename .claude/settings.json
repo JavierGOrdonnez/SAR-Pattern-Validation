@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "additionalDirectories": [
+      "/mnt/c/Users/ordonez/Mind Garden/The Project House/Work/Duties/Gamma Validation/Milestone 6 - Implement MGD Feedback - 2026-04-24",
+      "/mnt/c/Users/ordonez/Mind Garden/The Project House/Work/Duties/Gamma Validation"
+    ],
+    "allow": [
+      "Bash(mkdir -p \"/mnt/c/Users/ordonez/Mind Garden/The Project House/Work/Duties/Gamma Validation/Milestone 6 - Implement MGD Feedback - 2026-04-24\")",
+      "Read(//mnt/c/Users/ordonez/Mind Garden/The Project House/Work/Duties/Gamma Validation/**)",
+      "Bash(make tests-fast *)",
+      "Bash(REGENERATE_TUTORIAL_ARTIFACT=1 uv run pytest --run-slow tests/test_tutorial_validation.py)",
+      "Bash(make measurement-dashboard *)",
+      "Bash(pdflatex -interaction=nonstopmode main.tex)",
+      "Bash(REGENERATE_MEASUREMENT_VALIDATION_ARTIFACTS=1 SAVE_MEASUREMENT_VALIDATION_PLOTS=0 uv run pytest -n auto --dist loadscope tests/test_measurement_validation.py --run-slow)",
+      "Read(//tmp/**)",
+      "Bash(REGENERATE_MEASUREMENT_VALIDATION_ARTIFACTS=1 SAVE_MEASUREMENT_VALIDATION_PLOTS=1 uv run pytest -n 0 --run-slow -k \"5800mhz\" tests/test_measurement_validation.py -v)",
+      "Bash(tee /tmp/regen_5ghz_all.log)",
+      "Bash(REGENERATE_MEASUREMENT_VALIDATION_ARTIFACTS=1 SAVE_MEASUREMENT_VALIDATION_PLOTS=1 uv run pytest -n 0 --run-slow \"tests/test_measurement_validation.py::test_measurement_workflow_cases_900mhz_10dbm_match_reference_artifacts[900_15mm_1g_10dbm_16]\" -v)",
+      "Bash(python3 -c ' *)"
+    ]
+  }
+}

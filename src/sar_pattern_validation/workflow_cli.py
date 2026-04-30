@@ -55,6 +55,7 @@ def _parse_report_args(args_list: list[str]) -> tuple[argparse.Namespace, list[s
     """
     p = argparse.ArgumentParser(add_help=False)
     p.add_argument("--report_dir", type=str, default=None)
+    p.add_argument("--report_template_dir", type=str, default=None)
     p.add_argument("--report_antenna_type", type=str, default="dipole")
     p.add_argument("--report_frequency_mhz", type=int, default=0)
     p.add_argument("--report_distance_mm", type=int, default=0)
@@ -113,7 +114,7 @@ def main(argv: list[str] | None = None) -> int:
             from sar_pattern_validation.report import generate_report
 
             config = _build_config_for_report(remaining_args)
-            report_tex = generate_report(
+            kwargs: dict = dict(
                 workflow_result=result,
                 workflow_config=config,
                 output_dir=report_ns.report_dir,
@@ -122,6 +123,9 @@ def main(argv: list[str] | None = None) -> int:
                 distance_mm=report_ns.report_distance_mm,
                 mass_g=report_ns.report_mass_g,
             )
+            if report_ns.report_template_dir:
+                kwargs["template_dir"] = report_ns.report_template_dir
+            report_tex = generate_report(**kwargs)
             payload["report_tex_path"] = str(report_tex)
             payload["report_dir"] = str(report_tex.parent)
 
