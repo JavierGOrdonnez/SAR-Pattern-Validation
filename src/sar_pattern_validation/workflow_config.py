@@ -31,6 +31,13 @@ DEFAULT_PLOT_WINDOW_MM: Final[tuple[float, float, float, float]] = (
     -120.0,
     120.0,
 )
+
+# Measurement-area bounds (per MGD 2026-04-24 feedback). Inclusive upper bound,
+# exclusive lower bound — a 22 mm × 22 mm 10 g cube face must fit strictly
+# inside the area, so the area itself must exceed 22 mm on each axis.
+MEASUREMENT_AREA_MIN_MM_EXCLUSIVE: Final[float] = 22.0
+MEASUREMENT_AREA_MAX_X_MM: Final[float] = 600.0
+MEASUREMENT_AREA_MAX_Y_MM: Final[float] = 400.0
 DEFAULT_PLOT_FONT_SIZE: Final[float] = 14.0
 DEFAULT_SINGLE_FIGURE_SIZE: Final[tuple[float, float]] = (6.0, 6.0)
 DEFAULT_COMBINED_FIGURE_SIZE: Final[tuple[float, float]] = (12.0, 5.0)
@@ -102,6 +109,11 @@ class PlottingConfig(BaseModel):
         return value
 
 
+def _centered_square_window_mm(side_mm: float) -> tuple[float, float, float, float]:
+    half_side_mm = float(side_mm) / 2.0
+    return (-half_side_mm, half_side_mm, -half_side_mm, half_side_mm)
+
+
 class WorkflowConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -144,38 +156,42 @@ class WorkflowConfig(BaseModel):
     save_failures_overlay: bool = True
     log_level: str = DEFAULT_LOG_LEVEL
     plotting: PlottingConfig = Field(default_factory=PlottingConfig)
+    measurement_area_x_mm: float | None = Field(
+        default=None,
+        gt=MEASUREMENT_AREA_MIN_MM_EXCLUSIVE,
+        le=MEASUREMENT_AREA_MAX_X_MM,
+    )
+    measurement_area_y_mm: float | None = Field(
+        default=None,
+        gt=MEASUREMENT_AREA_MIN_MM_EXCLUSIVE,
+        le=MEASUREMENT_AREA_MAX_Y_MM,
+    )
 
     @field_validator("log_level")
     @classmethod
     def _validate_log_level(cls, value: str) -> str:
-        level = value.strip().upper()
-        allowed = set(LOG_LEVEL_CHOICES)
-        if level not in allowed:
-            allowed_str = ", ".join(sorted(allowed))
-            raise ValueError(f"log_level must be one of: {allowed_str}")
-        return level
-
-    @field_validator("measured_file_path", "reference_file_path")
-    @classmethod
-    def _validate_csv_path(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("path cannot be empty")
-        return value
+        normalized = str(value).upper()
+        if normalized not in LOG_LEVEL_CHOICES:
+            allowed = ", ".join(LOG_LEVEL_CHOICES)
+            raise ValueError(f"log_level must be one of: {allowed}")
+        return normalized
 
     @model_validator(mode="after")
-    def _validate_stage_rotation_fields(self) -> WorkflowConfig:
-        if self.transform_type == Transform2D.TRANSLATE:
+    def _validate_measurement_area(self) -> WorkflowConfig:
+        x_mm = self.measurement_area_x_mm
+        y_mm = self.measurement_area_y_mm
+
+        if (x_mm is None) != (y_mm is None):
+            raise ValueError(
+                "measurement_area_x_mm and measurement_area_y_mm must be provided together"
+            )
+
+        if x_mm is None or y_mm is None:
             return self
 
-        for index, stage in enumerate(self.stages):
-            if stage.rot_step_deg <= 0:
-                raise ValueError(
-                    f"stages.{index}.rot_step_deg must be > 0 for rigid registration"
-                )
-            if stage.rot_span_deg <= 0:
-                raise ValueError(
-                    f"stages.{index}.rot_span_deg must be > 0 for rigid registration"
-                )
+        self.plotting = self.plotting.model_copy(
+            update={"window_mm": _centered_square_window_mm(max(x_mm, y_mm))}
+        )
         return self
 
 
@@ -194,10 +210,12 @@ class WorkflowResult(BaseModel):
     measured_image_path: Path | None
     aligned_measured_path: Path | None
     measured_pssar: float
+    measured_pssar_at_input_power: float | None = None
     reference_pssar: float
     scaling_error: float
     dose_to_agreement: float
     distance_to_agreement: float
+    input_power_level_dbm: float | None = None
     gamma_map: np.ndarray | None = Field(default=None, exclude=True, repr=False)
     evaluation_mask: np.ndarray | None = Field(default=None, exclude=True, repr=False)
 
@@ -213,9 +231,9 @@ class WorkflowResult(BaseModel):
     )
     @classmethod
     def _coerce_path(cls, value: str | Path | None) -> Path | None:
-        if value is None or isinstance(value, Path):
-            return value
-        return Path(value)
+        if value is None:
+            return None
+        return str(value)
 
     @field_validator("pass_rate_percent")
     @classmethod

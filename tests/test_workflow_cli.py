@@ -1,7 +1,11 @@
 import json
+import logging
+import os
 import subprocess
 import sys
+from contextlib import redirect_stdout
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -267,6 +271,60 @@ def test_cli_error_handling(tmp_path: Path) -> None:
     assert "error" in error_output
     assert "type" in error_output["error"]
     assert "message" in error_output["error"]
+
+
+def test_cli_logs_traceback_and_returns_sanitized_error_json(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    captured_stdout = __import__("io").StringIO()
+
+    with (
+        patch(
+            "sar_pattern_validation.workflow_cli.complete_workflow",
+            side_effect=RuntimeError("Bad measurement input"),
+        ),
+        caplog.at_level(logging.ERROR),
+        redirect_stdout(captured_stdout),
+    ):
+        exit_code = main([])
+
+    payload = json.loads(captured_stdout.getvalue())
+
+    assert exit_code == 1
+    assert payload == {
+        "status": "error",
+        "error": {
+            "type": "RuntimeError",
+            "message": "Bad measurement input",
+        },
+    }
+    assert "Workflow execution failed" in caplog.text
+    assert "Traceback" in caplog.text
+
+
+def test_cli_writes_backend_log_file(tmp_path: Path) -> None:
+    log_path = tmp_path / "backend-test.log"
+    captured_stdout = __import__("io").StringIO()
+
+    with (
+        patch(
+            "sar_pattern_validation.workflow_cli.complete_workflow",
+            side_effect=RuntimeError("Bad measurement input"),
+        ),
+        patch.dict(
+            os.environ,
+            {"SAR_PATTERN_VALIDATION_BACKEND_LOG_FILE": str(log_path)},
+            clear=False,
+        ),
+        redirect_stdout(captured_stdout),
+    ):
+        exit_code = main([])
+
+    assert exit_code == 1
+    assert log_path.exists()
+    log_text = log_path.read_text(encoding="utf-8")
+    assert "Workflow execution failed" in log_text
+    assert "Traceback" in log_text
 
 
 @pytest.mark.slow
