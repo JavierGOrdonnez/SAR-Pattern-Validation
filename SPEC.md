@@ -44,6 +44,10 @@ V6: When `handle_button_click` detects that only `power_level` changed (same mea
 
 V7: ∀ artifact regeneration run → artifacts are committed to LFS and the commit message references the `main-melanie` HEAD hash used. Regen must not silently overwrite passing cases with failures without a §B backprop entry.
 
+V8: ∀ E2E CI run → `notebooks/voila.ipynb` must execute in a Jupyter kernel without raising any exception before Playwright tests start. Verified by the `notebook_smoke`-marked pytest step in the `e2e-tests` CI job. Catches syntax errors, ImportErrors, and widget initialisation errors that otherwise surface only as Playwright timeouts.
+
+V9: ∀ E2E Playwright locator targeting a number input by widget identity → must use label-anchored selector (`.widget-text` filtered by `label:has-text(...)`) not positional `nth()`. Positional indices shift whenever a new widget is added to the same DOM row.
+
 ## §T Tasks
 
 Stream A — UI adjustments branch (`jgo/ui-adjustments` from `main-melanie`):
@@ -74,6 +78,8 @@ Records every branch merged into `main-melanie`. Critical for squash-merge workf
 |------|--------|-------------|-----------------|
 | 2026-05-15 | `jgo/6.6-validation-issue-channel` | `497c17c` | Task 6.6: `ValidationIssue` dataclass + `MASK_TOO_SMALL` / `CSV_FORMAT_ERROR` emit sites; notebook issues-aware banner; banner stdout fix + `status:error` guard; `MASK_TOO_SMALL` E2E test; backprop §B1–§B4, §V1–§V4 |
 | 2026-05-15 | `jgo/m6-results-table` | `b84e9a8` | M6 Task 5: two-table results layout in Voila notebook; widget notation fix; CI Voila E2E timeout + dependency updates |
+| 2026-05-17 | `jgo/ui-adjustments` | `ee0e493` | T2–T5: plotting renames + overlays (cropped-area + noise-floor), notebook layout (table below, inline banner, stretch grid), boxed log widget + radio-button height limit; power-level fast-path (V6); build backend → hatchling |
+| 2026-05-17 | `port/6.2-measurement-area-inputs` | `9606cb5` | Measurement-area X/Y inputs in Voila UI + config validation (gt=22, le=600/400); plot canvas centering; notebook smoke test; label-anchored E2E selectors (V9); §V8–§V9, §B5–§B10 |
 
 Branches already incorporated before this log began (via GitHub PRs, squash-merged onto `main` / `main-melanie`):
 
@@ -101,3 +107,8 @@ Branches already incorporated before this log began (via GitHub PRs, squash-merg
 | B3 | 2026-05-15 | `workflows.py:311` passes `measured_support_u8` (boundary-only) to `_apply_roi_policy` instead of `measured_mask_u8`; noise-filtered (SAR < cutoff) pixels included in gamma eval mask → inflated pass rate (Task 6.4) | V3 |
 | B4 | 2026-05-15 | MASK_TOO_SMALL checked only post-registration; pre-registration noise-filtered `measured_mask_u8` never verified against `min_inscribed_square_mm` | V4 |
 | B5 | 2026-05-15 | MASK_TOO_SMALL emitted as `severity="warning"` appended to `issues`, allowing workflow to complete; physically it is a hard validity gate — comparison on a sub-22mm mask is invalid | V4 |
+| B6 | 2026-05-15 | `widgets.Layout(align_items="flex_start")` — underscore instead of CSS hyphen — caused voila to fail at startup; all E2E Playwright tests timed out rather than showing a useful error | V8 |
+| B7 | 2026-05-16 | `84ae861` merge on `jgo/m6-results-table` silently dropped 5 noise_floor lines: method def (→ AttributeError), run-key entry (→ stale cache on floor change), `restore_state` read+set (→ lost on reload), `top_row` flex_item (→ widget invisible in UI) | V8 |
+| B8 | 2026-05-16 | `_set_meas_area` and two upper-bound tests used `input[type='number'].nth(1/2)`; adding `noise_floor` widget to `top_row` (§B7 fix) shifted DOM order → inputs resolved to wrong widget, values clamped to 0.1 max, tests timed out | V9 |
+| B9 | 2026-05-16 | `test_workflow_produces_square_plots` unpacked `voila_server` as 2-tuple (`_, workspace_root`) but fixture yields 3-tuple; raised `ValueError: too many values to unpack` | — |
+| B10 | 2026-05-16 | `84ae861` merge dropped `measurement_area_row` from `left_setup_section` in `create_ui`; `measurement_area_x/y` widgets were defined but never added to the DOM → Playwright locators timed out finding them | V9 |
