@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from sar_pattern_validation.workflow_config import WorkflowConfig
+from sar_pattern_validation.workflow_config import PlottingConfig, WorkflowConfig
 from sar_pattern_validation.workflows import _complete_workflow
 
 from .helpers import compare_gamma_maps
@@ -517,6 +517,7 @@ def _compute_case(
         adaptive_assume_axial_symmetry=True,
         evaluation_roi_policy="intersection",
         render_plots=save_plots,
+        plotting=PlottingConfig(save_colorbars=False),
         loaded_images_save_path=str(plot_dir / "01_loader_comparison.png")
         if save_plots
         else None,

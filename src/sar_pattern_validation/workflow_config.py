@@ -99,6 +99,7 @@ class PlottingConfig:
     measurement_area_y_mm: float | None = None
     center_x_mm: float = 0.0
     center_y_mm: float = 0.0
+    save_colorbars: bool = True
 
 
 @dataclass

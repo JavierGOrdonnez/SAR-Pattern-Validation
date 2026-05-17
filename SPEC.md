@@ -18,6 +18,51 @@ C5: LFS scope: measurement CSVs under `data/measurements/` and `data/database/`,
 
 C6: The Voila UI must never re-run registration when only `power_level` changes between consecutive runs (same measured file, same reference, same noise_floor). Power rescaling must be instant (no button cycle). See V6 for the implementation contract.
 
+C7 (planned): Adaptive noise floor for measurement validation — when `power_level_dbm ≤ 3`, use `noise_floor = 0.01 W/kg`; otherwise use `0.05 W/kg`. Rationale: at low transmit power, SAR amplitudes are very small; the 0.05 W/kg cutoff excludes too much valid signal and causes `MASK_TOO_SMALL` / `EMPTY_MEASURED_MASK` failures. Currently all test cases use the default 0.05 W/kg; adaptive logic to be implemented in T12.
+
+## §MV Measurement Validation Overview
+
+The measurement validation framework stress-tests the registration + gamma pipeline against real measured SAR data across multiple frequencies, power levels, distances, and averaging masses.
+
+**Data sources**
+
+| Pool | Location | Bands covered |
+|------|----------|---------------|
+| `BASELINE_CASES` | `data/measurements/D2450_*.csv` (compact format) | 2450 MHz, 10 mm, 1g/10g, 17 dBm, 9 pairs |
+| `ROBUSTNESS_CASES` | hard-coded paths in test file | 900 / 1950 / 5800 MHz |
+| `DISCOVERED_CASES` | auto-discovered from `data/measurements/` filesystem | all bands present on disk |
+
+**File naming conventions** (two patterns coexist):
+
+- Compact: `D{freq}_Flat_{dist}mm_{power}dBm_{mass}_{index}.csv` (e.g. `D2450_Flat_10mm_17dBm_1g_1.csv`)
+- Spacey: `D{freq}_Flat HSL_{dist} mm_{power} dBm_{mass}_{index}.csv` (e.g. `D2450_Flat HSL_10 mm_17 dBm_1g_1.csv`)
+
+`{freq}` may be a plain integer MHz (e.g. `2450`, `900`, `1950`) or `{N}GHz` notation (e.g. `5GHz` → 5800 MHz).
+
+**Artifact layout**
+
+```
+tests/artifacts/measurement_validation/
+  {frequency_key}/                  # e.g. 2450mhz, 900mhz, 5800mhz
+    {power_level_key}/              # e.g. 17dbm, 10dbm
+      {case_id}_metrics.json        # scalar metrics dict
+      {case_id}.npz                 # gamma_map + evaluation_mask arrays
+  plots/
+    {case_id}/
+      01_loader_comparison.png
+      02_registered_measured.png
+      02_registration_overlay.png
+      03_gamma_map.png
+```
+
+Case IDs follow the pattern `{freq_mhz}_{dist}mm_{mass}_{power}dbm_{index}` (e.g. `2450_10mm_1g_17dbm_1`).
+
+**Thresholds** used in `test_measurement_validation.py`:
+- `dose_to_agreement = 10 %`, `distance_to_agreement = 3 mm`, `gamma_cap = 2.0`
+- `noise_floor = 0.05 W/kg` (default; see C7 for planned adaptive override at ≤ 3 dBm)
+
+**HTML report** (`generate_measurement_validation_report_html.py`): produced from artifact JSON files; filterable by band, power level, pass/fail. Default thresholds: `scaling_error < 10 %`, `gamma_pass_rate = 100 %`.
+
 ## §I Interface
 
 I1: `complete_workflow(measured_file_path, reference_file_path, ...)` — runs full registration + gamma pipeline; returns `WorkflowResult` on success, raises `WorkflowExecutionError` with `.issue: ValidationIssue | None` on structured failures.
@@ -48,6 +93,8 @@ V8: ∀ E2E CI run → `notebooks/voila.ipynb` must execute in a Jupyter kernel 
 
 V9: ∀ E2E Playwright locator targeting a number input by widget identity → must use label-anchored selector (`.widget-text` filtered by `label:has-text(...)`) not positional `nth()`. Positional indices shift whenever a new widget is added to the same DOM row.
 
+V10 (planned): ∀ `_compute_case` call in `test_measurement_validation.py` → `noise_floor` must be set adaptively: `0.01 W/kg` if `case.power_level_dbm ≤ 3`, else `0.05 W/kg`. Currently not implemented (all cases use `NOISE_FLOOR_WKG = 0.05`). Implement in T12.
+
 ## §T Tasks
 
 Stream A — UI adjustments branch (`jgo/ui-adjustments` from `main-melanie`):
@@ -64,11 +111,12 @@ Stream B — Measurement validation toolbox (`main-melanie` direct or sub-branch
 
 | ID | Status | Task | Cites |
 |----|--------|------|-------|
-| T7 | . | Recover additional measurement CSVs (1950 / 5800 / 900 MHz bands) + `data/database/` reference CSVs from `develop` or "main"; verify LFS tracking | C5 |
-| T8 | . | Extend `test_measurement_validation.py` with recovered bands; add `MeasurementValidationCase` entries for each new dataset | C2,C5 |
-| T9 | . | Recover scripts to generate measurement validation HTML report by frequency band and various filtering | C2,C4,I4 |
-| T10 | . | Regenerate all `tests/artifacts/measurement_validation/` (`.npz` + `_metrics.json` + plot PNGs) under `main-melanie` HEAD with `REGENERATE_MEASUREMENT_VALIDATION_ARTIFACTS=1 SAVE_MEASUREMENT_VALIDATION_PLOTS=1` | C3,C5,V7 |
+| T7 | x | Recover additional measurement CSVs (1950 / 5800 / 900 MHz bands) + `data/database/` reference CSVs from `develop` or "main"; verify LFS tracking | C5 |
+| T8 | x | Extend `test_measurement_validation.py` with recovered bands; add `MeasurementValidationCase` entries for each new dataset | C2,C5 |
+| T9 | x | Recover scripts to generate measurement validation HTML report by frequency band and various filtering | C2,C4,I4 |
+| T10 | ~ | Regenerate all `tests/artifacts/measurement_validation/` (`.npz` + `_metrics.json` + plot PNGs) under `main-melanie` HEAD with `REGENERATE_MEASUREMENT_VALIDATION_ARTIFACTS=1 SAVE_MEASUREMENT_VALIDATION_PLOTS=1` | C3,C5,V7 |
 | T11 | . | Run HTML report over regenerated artifacts; document which cases pass / fail / regress vs `develop` baseline; backprop any new failures via §B | V7,I4 |
+| T12 | . | Implement adaptive noise floor in `_compute_case`: `noise_floor = 0.01` when `power_level_dbm ≤ 3`, else `0.05`; re-run T10 for affected cases | C7,V10 |
 
 ## §M Merge Log
 

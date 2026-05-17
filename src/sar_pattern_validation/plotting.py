@@ -166,7 +166,7 @@ def plot_loaded_images(
             if sar_im is None:
                 sar_im = im
 
-        if image_save_path is not None and sar_im is not None:
+        if image_save_path is not None and sar_im is not None and config.save_colorbars:
             colorbar_path = _derive_colorbar_path(image_save_path, "sar_colorbar")
             _save_colorbar_only(
                 sar_im,
@@ -230,7 +230,7 @@ def plot_sar_image(
         )
         _apply_overlay_legend(ax, [noise_floor_handle, cropped_handle], config)
 
-        if show_colorbar and save_path is not None:
+        if show_colorbar and save_path is not None and config.save_colorbars:
             colorbar_path = _derive_colorbar_path(save_path, "colorbar")
             _save_colorbar_only(
                 im,
@@ -450,7 +450,7 @@ def plot_gamma_results(
         )
         _apply_overlay_legend(ax, [noise_floor_handle], config)
         fig.tight_layout()
-        if gamma_image_save_path is not None:
+        if gamma_image_save_path is not None and config.save_colorbars:
             colorbar_path_v = _derive_colorbar_path(
                 gamma_image_save_path, "colorbar_vertical"
             )
