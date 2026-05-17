@@ -592,27 +592,38 @@ _MEAS_Y_DEFAULT = 0.0
 _MEAS_Y_MIN = 22.01
 
 
-def _set_meas_area(voila_page, x: int, y: int) -> None:
-    """Set measurement area x and y inputs (inputs at index 1 and 2 in DOM order).
+def _meas_area_input(voila_page, label_fragment: str):
+    """Return the number input for a measurement-area widget identified by label text."""
+    return (
+        voila_page.locator(".widget-text")
+        .filter(has=voila_page.locator(f"label:has-text('{label_fragment}')"))
+        .locator("input[type='number']")
+    )
 
-    The widgets are BoundedIntText, so values are typed as integer strings.
-    After typing each one, wait until the DOM value reflects what we asked for —
-    otherwise a silent rejection (e.g. typing a float into an int input) would
-    leave the widget at its previous value and the test would silently mis-fire.
+
+def _set_meas_area(voila_page, x: int, y: int) -> None:
+    """Set measurement area x and y inputs via label-anchored locators.
+
+    Uses label text instead of positional nth() so that adding widgets to the
+    same row does not silently break this helper (§V5).
     """
     _log(f">> set_meas_area: x={x}, y={y}")
-    num_inputs = voila_page.locator("input[type='number']")
-    for nth, value in [(1, x), (2, y)]:
-        inp = num_inputs.nth(nth)
+    for label_fragment, value in [("Meas. area x", x), ("Meas. area y", y)]:
+        inp = _meas_area_input(voila_page, label_fragment)
         inp.click(click_count=3)
         inp.type(str(value))
         inp.press("Tab")
         voila_page.wait_for_function(
-            "({nth, expected}) => {"
-            "  const inputs = document.querySelectorAll(\"input[type='number']\");"
-            "  return inputs.length > nth && Number(inputs[nth].value) === expected;"
+            "({label, expected}) => {"
+            "  for (const c of document.querySelectorAll('.widget-text')) {"
+            "    const lbl = c.querySelector('label');"
+            "    const inp = c.querySelector('input[type=number]');"
+            "    if (lbl && lbl.textContent.includes(label) && inp)"
+            "      return Number(inp.value) === expected;"
+            "  }"
+            "  return false;"
             "}",
-            arg={"nth": nth, "expected": value},
+            arg={"label": label_fragment, "expected": value},
             timeout=5_000,
         )
     _log("<< set_meas_area: done")
@@ -656,35 +667,47 @@ class TestMeasurementAreaInputs:
 
     def test_measurement_area_x_accepts_upper_bound_600(self, voila_page) -> None:
         _log(">> test_measurement_area_x_accepts_upper_bound_600")
-        x_input = voila_page.locator("input[type='number']").nth(1)
+        x_input = _meas_area_input(voila_page, "Meas. area x")
         x_input.click(click_count=3)
         x_input.type("600")
         x_input.press("Tab")
         voila_page.wait_for_function(
-            "() => {"
-            "  const inputs = document.querySelectorAll(\"input[type='number']\");"
-            "  return inputs.length > 1 && Math.abs(Number(inputs[1].value) - 600) < 0.01;"
+            "({label, expected}) => {"
+            "  for (const c of document.querySelectorAll('.widget-text')) {"
+            "    const lbl = c.querySelector('label');"
+            "    const inp = c.querySelector('input[type=number]');"
+            "    if (lbl && lbl.textContent.includes(label) && inp)"
+            "      return Math.abs(Number(inp.value) - expected) < 0.01;"
+            "  }"
+            "  return false;"
             "}",
+            arg={"label": "Meas. area x", "expected": 600},
             timeout=5_000,
         )
-        val = float(voila_page.locator("input[type='number']").nth(1).input_value())
+        val = float(x_input.input_value())
         assert abs(val - 600.0) < 0.01, f"Expected 600, got {val}"
         _log("<< test_measurement_area_x_accepts_upper_bound_600: pass")
 
     def test_measurement_area_y_accepts_upper_bound_400(self, voila_page) -> None:
         _log(">> test_measurement_area_y_accepts_upper_bound_400")
-        y_input = voila_page.locator("input[type='number']").nth(2)
+        y_input = _meas_area_input(voila_page, "Meas. area y")
         y_input.click(click_count=3)
         y_input.type("400")
         y_input.press("Tab")
         voila_page.wait_for_function(
-            "() => {"
-            "  const inputs = document.querySelectorAll(\"input[type='number']\");"
-            "  return inputs.length > 2 && Math.abs(Number(inputs[2].value) - 400) < 0.01;"
+            "({label, expected}) => {"
+            "  for (const c of document.querySelectorAll('.widget-text')) {"
+            "    const lbl = c.querySelector('label');"
+            "    const inp = c.querySelector('input[type=number]');"
+            "    if (lbl && lbl.textContent.includes(label) && inp)"
+            "      return Math.abs(Number(inp.value) - expected) < 0.01;"
+            "  }"
+            "  return false;"
             "}",
+            arg={"label": "Meas. area y", "expected": 400},
             timeout=5_000,
         )
-        val = float(voila_page.locator("input[type='number']").nth(2).input_value())
+        val = float(y_input.input_value())
         assert abs(val - 400.0) < 0.01, f"Expected 400, got {val}"
         _log("<< test_measurement_area_y_accepts_upper_bound_400: pass")
 
@@ -712,7 +735,7 @@ def test_workflow_produces_square_plots(voila_page, voila_server) -> None:
     from PIL import Image
 
     _log(">> test_workflow_produces_square_plots")
-    _, workspace_root = voila_server
+    _, workspace_root, _ = voila_server
     img_path = workspace_root / "images" / "gamma_comparison_image.png"
     assert img_path.exists(), f"Output image not found at {img_path}"
     with Image.open(img_path) as img:
