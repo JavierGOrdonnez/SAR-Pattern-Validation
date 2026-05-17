@@ -38,7 +38,9 @@ V4: ∀ MASK_TOO_SMALL condition (pre-registration on `measured_mask_u8` or post
 
 V5: ∀ cherry-picked frontend commit → must not introduce any python ≥ 3.10 syntax or imports. CI `ty` check with `--python-version 3.9` is the enforcement gate.
 
-V6: ∀ artifact regeneration run → artifacts are committed to LFS and the commit message references the `main-melanie` HEAD hash used. Regen must not silently overwrite passing cases with failures without a §B backprop entry.
+V6: When `handle_button_click` detects that only `power_level` changed (same measured-file hash, same reference path, same noise_floor) and a prior `WorkflowResult` exists in memory → skip re-running registration; rescale psSAR via `_update_analytical_results(self.workflow_results)` with the new power level; set banner "Power level updated — results rescaled from prior run." with `severity="info"`. Button must NOT cycle. E2E gate: `test_same_session_rerun_updates_results_after_power_change` detects this by waiting for the unique banner text (not a button cycle).
+
+V7: ∀ artifact regeneration run → artifacts are committed to LFS and the commit message references the `main-melanie` HEAD hash used. Regen must not silently overwrite passing cases with failures without a §B backprop entry.
 
 ## §T Tasks
 
@@ -59,8 +61,8 @@ Stream B — Measurement validation toolbox (`main-melanie` direct or sub-branch
 | T7 | . | Recover additional measurement CSVs (1950 / 5800 / 900 MHz bands) + `data/database/` reference CSVs from `develop` or "main"; verify LFS tracking | C5 |
 | T8 | . | Extend `test_measurement_validation.py` with recovered bands; add `MeasurementValidationCase` entries for each new dataset | C2,C5 |
 | T9 | . | Recover scripts to generate measurement validation HTML report by frequency band and various filtering | C2,C4,I4 |
-| T10 | . | Regenerate all `tests/artifacts/measurement_validation/` (`.npz` + `_metrics.json` + plot PNGs) under `main-melanie` HEAD with `REGENERATE_MEASUREMENT_VALIDATION_ARTIFACTS=1 SAVE_MEASUREMENT_VALIDATION_PLOTS=1` | C3,C5,V6 |
-| T11 | . | Run HTML report over regenerated artifacts; document which cases pass / fail / regress vs `develop` baseline; backprop any new failures via §B | V6,I4 |
+| T10 | . | Regenerate all `tests/artifacts/measurement_validation/` (`.npz` + `_metrics.json` + plot PNGs) under `main-melanie` HEAD with `REGENERATE_MEASUREMENT_VALIDATION_ARTIFACTS=1 SAVE_MEASUREMENT_VALIDATION_PLOTS=1` | C3,C5,V7 |
+| T11 | . | Run HTML report over regenerated artifacts; document which cases pass / fail / regress vs `develop` baseline; backprop any new failures via §B | V7,I4 |
 
 ## §M Merge Log
 
