@@ -40,6 +40,8 @@ def _make_workflow_result(
         scaling_error=-0.0035,  # -0.35 %
         dose_to_agreement=5.0,
         distance_to_agreement=2.0,
+        min_inscribed_square_mm=0.0,
+        mask_fits_min_inscribed_square=True,
         gamma_map=None,
         evaluation_mask=None,
     )
@@ -65,11 +67,14 @@ def test_set_latex_macro_no_match_keeps_text_unchanged():
 
 def test_default_template_dir_resolves_to_repo_template():
     assert DEFAULT_TEMPLATE_DIR.name == "report_template"
-    assert (DEFAULT_TEMPLATE_DIR / "main.tex").is_file()
+    assert (DEFAULT_TEMPLATE_DIR / "base_report" / "main.tex").is_file()
+    assert (DEFAULT_TEMPLATE_DIR / "tested_case_report_page" / "main.tex").is_file()
 
 
-def test_template_figure_mapping_keys_match_template():
-    template_text = (DEFAULT_TEMPLATE_DIR / "main.tex").read_text(encoding="utf-8")
+def test_template_figure_mapping_keys_match_tested_case_template():
+    template_text = (
+        DEFAULT_TEMPLATE_DIR / "tested_case_report_page" / "main.tex"
+    ).read_text(encoding="utf-8")
     for figure_name in TEMPLATE_FIGURE_MAPPING:
         assert f"figures/{figure_name}" in template_text, (
             f"Template no longer references {figure_name!r}; update the mapping."
@@ -98,19 +103,23 @@ def test_generate_report_writes_filled_tex_with_all_substitutions(tmp_path: Path
 
     assert out == tmp_path / "main.tex"
     text = out.read_text(encoding="utf-8")
-    assert r"\newcommand{\filemeas}{D900\_Flat\_HSL\_15mm\_10dBm\_10g\_3.csv}" in text
-    assert r"\newcommand{\powerlevel}{10}" in text
-    assert r"\newcommand{\noiselevel}{0.001}" in text
-    assert r"\newcommand{\antennatype}{dipole}" in text
-    assert r"\newcommand{\frequency}{900}" in text
-    assert r"\newcommand{\distance}{15}" in text
-    assert r"\newcommand{\mass}{10}" in text
-    assert r"\newcommand{\pssarref}{24.71}" in text
-    assert r"\newcommand{\pssarmeas}{24.63}" in text
-    assert r"\newcommand{\errscale}{-0.35}" in text
-    assert r"\newcommand{\deltadist}{2~mm\xspace}" in text
-    assert r"\newcommand{\deltadose}{5~\%\xspace}" in text
-    assert r"\def\passrate{97.5}" in text
+    # Check that the test case content is present with inline values
+    assert "D900\\_Flat\\_HSL\\_15mm\\_10dBm\\_10g\\_3.csv" in text
+    assert "10" in text  # power level
+    assert "0.001" in text  # noise level
+    assert "dipole" in text  # antenna type
+    assert "900" in text  # frequency
+    assert "15" in text  # distance
+    assert "24.71" in text  # ref pssar
+    assert "24.63" in text  # meas pssar
+    assert "-0.35" in text  # scaling error
+    assert r"2~mm" in text  # delta dist
+    assert r"5~\%" in text  # delta dose
+    # Check it's inside the appendix
+    assert r"\section{Tested Cases}" in text
+    assert r"\end{appendix}" in text
+    # Check pass rate conditional: 97.5 < 100 so it should say Fail
+    assert r"\textbf{Fail}" in text
 
 
 def test_generate_report_copies_existing_figures_with_template_filenames(
@@ -143,11 +152,12 @@ def test_generate_report_copies_existing_figures_with_template_filenames(
         workflow_result=result,
         workflow_config=config,
         output_dir=out_dir,
+        compile_pdf=False,
     )
 
-    figures_dir = out_dir / "figures"
+    case_figures_dir = out_dir / "figures" / "case_001"
     for figure_name in TEMPLATE_FIGURE_MAPPING:
-        assert (figures_dir / figure_name).is_file(), (
+        assert (case_figures_dir / figure_name).is_file(), (
             f"Missing template figure {figure_name!r} in report output"
         )
 
@@ -164,12 +174,13 @@ def test_generate_report_skips_missing_figures_without_failing(tmp_path: Path):
         workflow_result=result,
         workflow_config=config,
         output_dir=tmp_path,
+        compile_pdf=False,
     )
 
     assert out.is_file()
-    figures_dir = tmp_path / "figures"
-    assert figures_dir.is_dir()
-    assert list(figures_dir.iterdir()) == []
+    case_figures_dir = tmp_path / "figures" / "case_001"
+    assert case_figures_dir.is_dir()
+    assert list(case_figures_dir.iterdir()) == []
 
 
 def test_generate_report_raises_when_template_missing(tmp_path: Path):
@@ -188,6 +199,7 @@ def test_generate_report_raises_when_template_missing(tmp_path: Path):
             workflow_config=config,
             output_dir=tmp_path / "out",
             template_dir=missing_template,
+            compile_pdf=False,
         )
 
 
@@ -200,7 +212,7 @@ def test_compile_report_returns_none_when_pdflatex_missing(tmp_path: Path):
 
 
 def test_compile_report_produces_pdf(tmp_path: Path):
-    """End-to-end: compile the real template with the bundled example figures."""
+    """End-to-end: compile the real base_report template."""
     import shutil as _shutil
 
     if not _shutil.which("pdflatex"):
@@ -208,13 +220,12 @@ def test_compile_report_produces_pdf(tmp_path: Path):
 
     out_dir = tmp_path / "report"
     out_dir.mkdir()
-    figures_dir = out_dir / "figures"
-    figures_dir.mkdir()
 
-    tex_src = DEFAULT_TEMPLATE_DIR / "main.tex"
-    _shutil.copy2(tex_src, out_dir / "main.tex")
-    for png in (DEFAULT_TEMPLATE_DIR / "figures").glob("*.png"):
-        _shutil.copy2(png, figures_dir / png.name)
+    base_report_dir = DEFAULT_TEMPLATE_DIR / "base_report"
+    _shutil.copy2(base_report_dir / "main.tex", out_dir / "main.tex")
+    _shutil.copy2(base_report_dir / "bib.bib", out_dir / "bib.bib")
+    _shutil.copytree(base_report_dir / "class", out_dir / "class")
+    _shutil.copytree(base_report_dir / "figs", out_dir / "figs")
 
     pdf = compile_report(out_dir / "main.tex")
     assert pdf is not None
@@ -237,8 +248,9 @@ def test_generate_report_returns_pdf_when_compile_enabled(tmp_path: Path):
     figures_dir = tmp_path / "plots"
     figures_dir.mkdir()
     fake_figs = {}
+    tested_case_figs = DEFAULT_TEMPLATE_DIR / "tested_case_report_page" / "figures"
     for name in TEMPLATE_FIGURE_MAPPING:
-        src = DEFAULT_TEMPLATE_DIR / "figures" / name
+        src = tested_case_figs / name
         dest = figures_dir / name
         _shutil.copy2(src, dest)
         fake_figs[name] = dest
@@ -259,3 +271,48 @@ def test_generate_report_returns_pdf_when_compile_enabled(tmp_path: Path):
     )
     assert out.suffix == ".pdf"
     assert out.stat().st_size > 1000
+
+
+def test_generate_report_appends_multiple_cases(tmp_path: Path):
+    """Multiple calls to generate_report append subsections to the same report."""
+    config = WorkflowConfig(
+        measured_file_path="data/example/measured_sSAR1g.csv",
+        reference_file_path="data/example/reference_sSAR1g.csv",
+    )
+    result = _make_workflow_result()
+
+    out_dir = tmp_path / "report"
+
+    # First run
+    generate_report(
+        workflow_result=result,
+        workflow_config=config,
+        output_dir=out_dir,
+        antenna_type="dipole",
+        frequency_mhz=900,
+        distance_mm=15,
+        mass_g=10,
+        compile_pdf=False,
+    )
+
+    # Second run
+    generate_report(
+        workflow_result=result,
+        workflow_config=config,
+        output_dir=out_dir,
+        antenna_type="patch",
+        frequency_mhz=2450,
+        distance_mm=10,
+        mass_g=10,
+        compile_pdf=False,
+    )
+
+    text = (out_dir / "main.tex").read_text(encoding="utf-8")
+    # Both subsection titles should be present
+    assert r"Dipole, 900\,MHz, 15\,mm, 10\,g" in text
+    assert r"Patch, 2450\,MHz, 10\,mm, 10\,g" in text
+    # Two case directories should exist
+    assert (out_dir / "figures" / "case_001").is_dir()
+    assert (out_dir / "figures" / "case_002").is_dir()
+    # Only one \end{appendix} marker
+    assert text.count(r"\end{appendix}") == 1

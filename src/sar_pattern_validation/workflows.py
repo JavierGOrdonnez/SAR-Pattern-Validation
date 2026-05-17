@@ -563,7 +563,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--report_frequency_mhz", type=int, default=0)
     parser.add_argument("--report_distance_mm", type=int, default=0)
     parser.add_argument("--report_mass_g", type=int, default=0)
-        "--min_inscribed_square_mm",
+    parser.add_argument("--min_inscribed_square_mm",
         type=float,
         default=defaults.min_inscribed_square_mm,
         help=(

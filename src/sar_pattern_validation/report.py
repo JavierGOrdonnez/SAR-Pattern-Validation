@@ -1,9 +1,15 @@
 """
 Generate SAR Pattern Validation reports from workflow results.
 
-Per MGD 2026-04-24 feedback (slide 10): produce a report from each pipeline
-run using MGD's LaTeX template (report_template/main.tex), auto-filled with
-generated plots and data (gamma map, scaling error, pass/fail, parameters).
+The report uses a two-level template structure:
+  - base_report/main.tex: the full validation report with an appendix
+    section "Tested Cases" where individual test-case pages are appended.
+  - tested_case_report_page/main.tex: a per-run template that is filled in
+    and inserted as a subsection for each workflow execution.
+
+On the first workflow run the base report is initialized into the output
+directory.  Subsequent runs append additional subsections to the existing
+main.tex in the same output directory.
 
 Output path is exposed for [[Task 6.10 - User Report Download Button]] (MEST).
 """
@@ -33,6 +39,9 @@ TEMPLATE_FIGURE_MAPPING: dict[str, str] = {
     "reference_with_colorbar.png": "reference_image_path",
 }
 
+# Marker in the base_report main.tex where test-case content is inserted.
+_APPENDIX_END_MARKER = r"\end{appendix}"
+
 
 def _set_latex_macro(text: str, name: str, value: str) -> str:
     """
@@ -61,7 +70,10 @@ def _latex_escape_filename(name: str) -> str:
 
 def compile_report(main_tex: Path) -> Path | None:
     """
-    Compile *main_tex* to PDF with pdflatex (run twice for stable output).
+    Compile *main_tex* to PDF with pdflatex (+ biber if biblatex is used).
+
+    Runs: pdflatex → biber (if needed) → pdflatex → pdflatex
+    This ensures bibliography references and cross-references are resolved.
 
     pdflatex must be on PATH; if it isn't, logs a warning and returns None so
     the caller can fall back to distributing the .tex file instead.
@@ -78,33 +90,32 @@ def compile_report(main_tex: Path) -> Path | None:
         return None
 
     output_dir = main_tex.parent
-    cmd = [
+    pdflatex_cmd = [
         "pdflatex",
         "-interaction=nonstopmode",
         "-halt-on-error",
         main_tex.name,
     ]
-    for _pass in range(2):
-        try:
-            result = subprocess.run(  # nosec B603
-                cmd,
-                cwd=output_dir,
-                capture_output=True,
-                text=True,
-                timeout=120,
-            )
-        except subprocess.TimeoutExpired:
-            LOGGER.error("pdflatex timed out after 120 s")
-            return None
 
-        if result.returncode != 0:
-            LOGGER.error(
-                "pdflatex failed (pass %d/%d, rc=%d):\n%s",
-                _pass + 1,
-                2,
-                result.returncode,
-                result.stdout[-2000:],
-            )
+    # First pdflatex pass (generates .aux/.bcf for biber, or .aux for bibtex)
+    if not _run_latex_cmd(pdflatex_cmd, output_dir, "pdflatex pass 1"):
+        return None
+
+    # Run biber if the document uses biblatex (produces a .bcf file),
+    # otherwise run bibtex for traditional bibliography.
+    bcf_file = output_dir / main_tex.with_suffix(".bcf").name
+    if bcf_file.is_file() and shutil.which("biber"):
+        biber_cmd = ["biber", main_tex.stem]
+        if not _run_latex_cmd(biber_cmd, output_dir, "biber"):
+            LOGGER.warning("biber failed; PDF will lack bibliography")
+    elif shutil.which("bibtex"):
+        bibtex_cmd = ["bibtex", main_tex.stem]
+        if not _run_latex_cmd(bibtex_cmd, output_dir, "bibtex"):
+            LOGGER.warning("bibtex failed; PDF will lack bibliography")
+
+    # Second and third pdflatex passes (resolve references)
+    for pass_num in (2, 3):
+        if not _run_latex_cmd(pdflatex_cmd, output_dir, f"pdflatex pass {pass_num}"):
             return None
 
     pdf_path = output_dir / main_tex.with_suffix(".pdf").name
@@ -114,6 +125,184 @@ def compile_report(main_tex: Path) -> Path | None:
 
     LOGGER.info("PDF compiled: %s", pdf_path)
     return pdf_path
+
+
+def _run_latex_cmd(cmd: list[str], cwd: Path, label: str) -> bool:
+    """Run a LaTeX toolchain command; return True on success."""
+    try:
+        result = subprocess.run(  # nosec B603
+            cmd,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+    except subprocess.TimeoutExpired:
+        LOGGER.error("%s timed out after 120 s", label)
+        return False
+
+    if result.returncode != 0:
+        LOGGER.error(
+            "%s failed (rc=%d):\n%s",
+            label,
+            result.returncode,
+            result.stdout[-2000:],
+        )
+        return False
+    return True
+
+
+def _initialize_base_report(output_dir: Path, template_dir: Path) -> None:
+    """
+    Copy the base_report template into *output_dir* for the first workflow run.
+
+    Copies main.tex, bib.bib, class/, and figs/ so the report compiles
+    standalone from the output directory.
+    """
+    base_report_dir = template_dir / "base_report"
+    if not base_report_dir.is_dir():
+        raise FileNotFoundError(
+            f"Base report template directory not found: {base_report_dir}"
+        )
+
+    # Copy main.tex
+    shutil.copy2(base_report_dir / "main.tex", output_dir / "main.tex")
+
+    # Copy bib and bst files
+    bib_src = base_report_dir / "bib.bib"
+    if bib_src.is_file():
+        shutil.copy2(bib_src, output_dir / "bib.bib")
+    bst_src = base_report_dir / "IEEE.bst"
+    if bst_src.is_file():
+        shutil.copy2(bst_src, output_dir / "IEEE.bst")
+
+    # Copy class/ directory
+    class_src = base_report_dir / "class"
+    class_dst = output_dir / "class"
+    if class_src.is_dir():
+        if class_dst.exists():
+            shutil.rmtree(class_dst)
+        shutil.copytree(class_src, class_dst)
+
+    # Copy figs/ directory (static figures used in the base report)
+    figs_src = base_report_dir / "figs"
+    figs_dst = output_dir / "figs"
+    if figs_src.is_dir():
+        if figs_dst.exists():
+            shutil.rmtree(figs_dst)
+        shutil.copytree(figs_src, figs_dst)
+
+
+def _next_case_number(output_dir: Path) -> int:
+    """Determine the next case number by counting existing case_* figure dirs."""
+    figures_dir = output_dir / "figures"
+    if not figures_dir.is_dir():
+        return 1
+    existing = sorted(
+        d.name
+        for d in figures_dir.iterdir()
+        if d.is_dir() and d.name.startswith("case_")
+    )
+    return len(existing) + 1
+
+
+def _render_test_case_body(
+    *,
+    workflow_result: WorkflowResult,
+    workflow_config: WorkflowConfig,
+    antenna_type: str,
+    frequency_mhz: int,
+    distance_mm: int,
+    mass_g: int,
+    figures_relpath: str,
+) -> str:
+    """
+    Generate the LaTeX content for a single tested-case subsection.
+
+    The content is derived from the tested_case_report_page template with all
+    macro values resolved inline (no \\newcommand definitions needed).
+    """
+    measured_filename = _latex_escape_filename(
+        Path(workflow_config.measured_file_path).name
+    )
+    power_level = f"{workflow_config.power_level_dbm:g}"
+    noise_level = f"{workflow_config.noise_floor:g}"
+    pssar_ref = f"{workflow_result.reference_pssar:.2f}"
+    pssar_meas = f"{workflow_result.measured_pssar:.2f}"
+    err_scale = f"{100.0 * workflow_result.scaling_error:.2f}"
+    delta_dist = rf"{workflow_result.distance_to_agreement:g}~mm"
+    delta_dose = rf"{workflow_result.dose_to_agreement:g}~\%"
+    pass_rate = workflow_result.pass_rate_percent
+
+    # Resolve pass/fail conditional
+    if pass_rate < 100.0:
+        fail_rate = f"{100.0 - pass_rate:.1f}"
+        passfail = r"\textbf{Fail}"
+        statement = (
+            rf"The pattern validation fails because $\Gamma (x_e,y_e)~>~1.0$ "
+            rf"for {fail_rate}\,\% of the measured sSAR values, "
+            rf"$sSAR_{{en}}(x_e,y_e)$, compared to the reference, "
+            rf"$sSAR_{{rn}}(x'_r,y'_r)$,"
+        )
+    else:
+        passfail = r"\textbf{Pass}"
+        statement = (
+            r"The pattern validation passes because $\Gamma (x_e,y_e)~\leq~1.0$ "
+            r"for all of the measured sSAR values, "
+            r"$sSAR_{en}(x_e,y_e)$, compared to the reference, "
+            r"$sSAR_{rn}(x'_r,y'_r)$,"
+        )
+
+    subsection_title = (
+        f"{antenna_type.capitalize()}, {frequency_mhz}\\,MHz, "
+        f"{distance_mm}\\,mm, {mass_g}\\,g"
+    )
+
+    # Build the LaTeX snippet for this test case
+    content = rf"""
+\clearpage
+\FloatBarrier
+\subsection{{{subsection_title}}}
+
+File name with measurement, $sSAR_{{en}}(x_e,y_e)$: \texttt{{{measured_filename}}}
+
+\begin{{table}}[htpb] \centering
+\begin{{tabular}}{{cccccc|ccc}}
+\textbf{{Power}} & \textbf{{Noise}} & \textbf{{Source}} &&& \textbf{{Avg.}}&\multicolumn{{2}}{{c}}{{\textbf{{psSAR at 30~dBm}}}}& \textbf{{Sampling}} \\
+\textbf{{Level}} & \textbf{{Level}} &\textbf{{Type}} & \textbf{{Freq.}} & \textbf{{Dist.}} & \textbf{{Mass}} & \textbf{{Measured}} & \textbf{{Reference}} & \textbf{{Error}} \\
+\textbf{{(dBm)}} & \textbf{{(W/kg)}} & & \textbf{{(MHz)}} & \textbf{{(mm)}} & \textbf{{(g)}} & \textbf{{(W/kg)}} & \textbf{{(W/kg)}} & \textbf{{(\%)}} \\\hline
+{power_level} & {noise_level} & {antenna_type} & {frequency_mhz} & {distance_mm} & {mass_g} & {pssar_meas} & {pssar_ref} & {err_scale} \\
+\end{{tabular}}
+\end{{table}}
+
+\vspace{{-1em}}
+\FloatBarrier
+\subsubsection*{{Pattern Match Result: {passfail}}}
+
+{statement} ~according to the Gamma criterion\footnote{{
+\[
+\Gamma (x_e, y_e) = \min_{{x'_r,y'_r}}\Bigg(\sqrt{{\frac{{(x_e-x'_r)^2+(y_e-y'_r)^2}}{{\Delta d^2}}+\frac{{(sSAR_{{en}}(x_e,y_e)-sSAR_{{rn}}(x'_r,y'_r))^2}}{{\Delta D^2}}}}\Bigg)
+\]
+}} with $\Delta D = ${delta_dose}, $\Delta d$ = {delta_dist}. See IEC/IEEE PAS 62209-5 for details.
+
+\vspace{{-0.5em}}
+\begin{{center}}
+\begin{{tabular}}{{c}}
+  \includegraphics[width=.42\linewidth]{{{figures_relpath}/gamma_failures.png}}
+\end{{tabular}}%
+\begin{{tabular}}{{c}}
+  \includegraphics[width=.20\linewidth]{{{figures_relpath}/gamma_index_with_colorbar.png}} \\[1pt]
+  \includegraphics[width=.20\linewidth]{{{figures_relpath}/registration_nocolorbar.png}} \\
+\end{{tabular}}\\[2pt]
+\begin{{tabular}}{{c}}
+  \includegraphics[width=.35\linewidth]{{{figures_relpath}/measured_with_colorbar.png}}
+\end{{tabular}}%
+\begin{{tabular}}{{c}}
+  \includegraphics[width=.35\linewidth]{{{figures_relpath}/reference_with_colorbar.png}}
+\end{{tabular}}
+\end{{center}}
+"""
+    return content
 
 
 def generate_report(
@@ -129,10 +318,14 @@ def generate_report(
     compile_pdf: bool = True,
 ) -> Path:
     """
-    Render the SAR Pattern Validation LaTeX report into ``output_dir``.
+    Render or append a tested-case page to the SAR Pattern Validation report.
 
-    Reads ``template_dir/main.tex``, substitutes the 13 report macros, and
-    copies the generated plots into ``output_dir/figures/``.
+    On the first call (no existing main.tex in *output_dir*), the base report
+    template is copied into *output_dir* and the first test case is inserted
+    into the appendix.
+
+    On subsequent calls (main.tex already exists), the new test case is
+    appended to the existing appendix.
 
     When ``compile_pdf=True`` (default) and ``pdflatex`` is on PATH, compiles
     the .tex to PDF (two passes) and returns the PDF path.  If pdflatex is
@@ -143,47 +336,52 @@ def generate_report(
     """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    figures_dir = output_dir / "figures"
-    figures_dir.mkdir(parents=True, exist_ok=True)
-
     template_dir = Path(template_dir)
-    main_tex_template = template_dir / "main.tex"
-    if not main_tex_template.is_file():
-        raise FileNotFoundError(f"Report template not found: {main_tex_template}")
-    text = main_tex_template.read_text(encoding="utf-8")
 
-    bib_src = template_dir / "sample.bib"
-    if bib_src.is_file():
-        shutil.copy2(bib_src, output_dir / bib_src.name)
+    out_path = output_dir / "main.tex"
 
+    # --- Initialize from base_report if this is the first run ---
+    if not out_path.is_file():
+        _initialize_base_report(output_dir, template_dir)
+
+    # --- Determine case number and create figures directory ---
+    case_num = _next_case_number(output_dir)
+    case_figures_dir = output_dir / "figures" / f"case_{case_num:03d}"
+    case_figures_dir.mkdir(parents=True, exist_ok=True)
+
+    # --- Copy workflow result figures into case-specific directory ---
     for target_name, attr_name in TEMPLATE_FIGURE_MAPPING.items():
         source_path = getattr(workflow_result, attr_name, None)
         if source_path is None or not Path(source_path).is_file():
             continue
-        shutil.copy2(source_path, figures_dir / target_name)
+        shutil.copy2(source_path, case_figures_dir / target_name)
 
-    measured_filename = Path(workflow_config.measured_file_path).name
-    substitutions: dict[str, str] = {
-        "filemeas": _latex_escape_filename(measured_filename),
-        "powerlevel": f"{workflow_config.power_level_dbm:g}",
-        "noiselevel": f"{workflow_config.noise_floor:g}",
-        "antennatype": antenna_type,
-        "frequency": f"{frequency_mhz}",
-        "distance": f"{distance_mm}",
-        "mass": f"{mass_g}",
-        "pssarref": f"{workflow_result.reference_pssar:.2f}",
-        "pssarmeas": f"{workflow_result.measured_pssar:.2f}",
-        "errscale": f"{100.0 * workflow_result.scaling_error:.2f}",
-        "deltadist": rf"{workflow_result.distance_to_agreement:g}~mm\xspace",
-        "deltadose": rf"{workflow_result.dose_to_agreement:g}~\%\xspace",
-        "passrate": f"{workflow_result.pass_rate_percent:.1f}",
-    }
-    for name, value in substitutions.items():
-        text = _set_latex_macro(text, name, value)
+    # --- Render the test case content ---
+    figures_relpath = f"figures/case_{case_num:03d}"
+    test_case_content = _render_test_case_body(
+        workflow_result=workflow_result,
+        workflow_config=workflow_config,
+        antenna_type=antenna_type,
+        frequency_mhz=frequency_mhz,
+        distance_mm=distance_mm,
+        mass_g=mass_g,
+        figures_relpath=figures_relpath,
+    )
 
-    out_path = output_dir / "main.tex"
+    # --- Insert the test case before \end{appendix} in main.tex ---
+    text = out_path.read_text(encoding="utf-8")
+    if _APPENDIX_END_MARKER not in text:
+        raise ValueError(
+            f"Cannot find '{_APPENDIX_END_MARKER}' in {out_path}. "
+            "The base report template may be malformed."
+        )
+    text = text.replace(
+        _APPENDIX_END_MARKER,
+        test_case_content + "\n" + _APPENDIX_END_MARKER,
+    )
     out_path.write_text(text, encoding="utf-8")
 
+    # --- Compile PDF ---
     if compile_pdf:
         pdf_path = compile_report(out_path)
         if pdf_path is not None:
