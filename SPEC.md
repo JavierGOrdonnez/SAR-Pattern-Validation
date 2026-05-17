@@ -16,6 +16,8 @@ C4: HTML report is pure Python (Jinja2 or stdlib string templates). No `pdflatex
 
 C5: LFS scope: measurement CSVs under `data/measurements/` and `data/database/`, artifact `.npz` under `tests/artifacts/`, plot PNGs under `tests/artifacts/measurement_validation/plots/`. All must remain LFS-tracked.
 
+C6: The Voila UI must never re-run registration when only `power_level` changes between consecutive runs (same measured file, same reference, same noise_floor). Power rescaling must be instant (no button cycle). See V6 for the implementation contract.
+
 ## §I Interface
 
 I1: `complete_workflow(measured_file_path, reference_file_path, ...)` — runs full registration + gamma pipeline; returns `WorkflowResult` on success, raises `WorkflowExecutionError` with `.issue: ValidationIssue | None` on structured failures.
