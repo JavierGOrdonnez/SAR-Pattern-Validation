@@ -862,6 +862,70 @@ def test_mask_too_small_shows_error_banner(voila_page, tmp_path) -> None:
     _log("<< test_mask_too_small_shows_error_banner: pass")
 
 
+def test_result_table_clears_on_rerun_then_repopulates(voila_page) -> None:
+    """Result table must disappear when a new run starts and reappear when done.
+
+    Bug: on the second Compare Patterns click the images are cleared but the
+    result table keeps showing stale data from the previous run.  Fix: set
+    result_table.value = "" at the top of handle_button_click, before
+    update_images(no_data=True).
+    """
+    _log(">> test_result_table_clears_on_rerun_then_repopulates")
+
+    # Restore valid CSV so the run can succeed.
+    if _UPLOAD_CSV_PATH.name not in voila_page.locator("body").inner_text():
+        _upload_file(voila_page, _UPLOAD_CSV_PATH)
+    _ensure_run_button_enabled(voila_page)
+    _set_meas_area(voila_page, 0, 0)
+
+    run_btn = voila_page.locator("button:has-text('Compare Patterns')")
+
+    # First run: produce a result table with content.
+    run_btn.click()
+    _wait_for_workflow_cycle(voila_page)
+    first_html = voila_page.content()
+    assert "Reference, 30 dBm" in first_html, (
+        "Prerequisite: first run must produce a result table"
+    )
+    _log("   first run complete — result table confirmed")
+
+    # Force a different run key so the second click triggers a full rerun
+    # (not the 'already match' early return).  Toggling noise_floor briefly
+    # changes the key and restores it so the test leaves the page clean.
+    _set_noise_floor(voila_page, 0.06)
+
+    # Second run: click and immediately check the table clears while running.
+    _log("   clicking Compare Patterns for second run")
+    run_btn.click()
+
+    _FIND_BTN = (
+        "() => [...document.querySelectorAll('button')]"
+        ".find(b => b.textContent.includes('Compare Patterns'))"
+    )
+    voila_page.wait_for_function(
+        f"() => {{ const b = ({_FIND_BTN})(); return b && b.disabled; }}",
+        timeout=10_000,
+    )
+    _log("   run started — asserting result table is now empty")
+    table_html = voila_page.locator("body").inner_html()
+    assert "Reference, 30 dBm" not in table_html, (
+        "Result table must be cleared when a rerun starts "
+        "(found stale 'Reference, 30 dBm' header while button was disabled)"
+    )
+
+    # Wait for run to finish and confirm table repopulates.
+    _wait_for_workflow_cycle(voila_page)
+    second_html = voila_page.content()
+    assert "Reference, 30 dBm" in second_html, (
+        "Result table must repopulate after the rerun completes"
+    )
+    _log("   result table repopulated after second run")
+
+    # Restore noise floor for subsequent tests.
+    _set_noise_floor(voila_page, _NOISE_FLOOR_DEFAULT)
+    _log("<< test_result_table_clears_on_rerun_then_repopulates: pass")
+
+
 # ---------------------------------------------------------------------------
 # V12 / B11: fast-track power-level rescale must update Measured@30dBm and
 # Scaling Error, not just the first column. Both tests below are E2E gates

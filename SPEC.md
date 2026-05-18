@@ -106,6 +106,8 @@ V14: `measurement_area_x` and `measurement_area_y` Voila widgets must be `widget
 
 V15: V12 fast-track E2E tests must reference the baseline passing power via a named constant `_FAST_TRACK_PASS_POWER_DBM`; value must satisfy `|psSAR_scaling_error(measured_sSAR1g.csv, P)| ≤ 10 %`. Current correct value: 21 dBm (scaling_error ≈ −0.5 %). Gate: `test_fast_track_wrong_power_after_success_shows_failure`, `test_fast_track_fix_power_restores_pass`.
 
+V16: ∀ Compare Patterns click that triggers a full workflow rerun → `result_table.value` must be set to `""` before `update_images(no_data=True)`; the result table must be empty while the run button is disabled, and non-empty once the cycle completes. Gate: `test_result_table_clears_on_rerun_then_repopulates`.
+
 ## §T Tasks
 
 Stream A — UI adjustments branch (`jgo/ui-adjustments` from `main-melanie`):
@@ -296,3 +298,4 @@ Stream E — Port from `jgo/feedback-changes`:
 | B10 | 2026-05-16 | `84ae861` merge dropped `measurement_area_row` from `left_setup_section` in `create_ui`; `measurement_area_x/y` widgets were defined but never added to the DOM → Playwright locators timed out finding them | V9 |
 | B13 | 2026-05-18 | `measurement_area_x/y` widgets created as `widgets.Text` (renders `input[type='text']`); `_meas_area_input` selector targets `input[type='number']` → all 7 `TestMeasurementAreaInputs` timeout; auto-detect logic used empty-string check incompatible with `BoundedIntText.value=0` | V14 |
 | B14 | 2026-05-18 | Fast-track E2E tests hardcoded `23.0` dBm as "correct power" for `measured_sSAR1g.csv`; at 23 dBm `scaling_error = −37.3 %` → assertion `\|scaling_error\| ≤ 10 %` fails; correct power is 21 dBm (`scaling_error ≈ −0.5 %`; `raw_peak ≈ 5.23 W/kg × 10^(9/10) ≈ 41.5 W/kg ≈ reference 41.76 W/kg`) | V15 |
+| B15 | 2026-05-18 | On a second Compare Patterns click `result_table.value` was not cleared; stale result table stayed visible while images were blanked, giving a misleading mixed state during the run | V16 |
