@@ -23,7 +23,7 @@ Each frequency group contains multiple cases varying by:
 
 ### Run tests for missing cases only (smart rerun)
 ```bash
-python run_measurement_validation_tests.py
+python scripts/measurement_validation/run_measurement_validation_tests.py
 ```
 This will:
 - Check which frequencies already have test artifacts
@@ -32,25 +32,25 @@ This will:
 
 ### Force rerun specific frequencies
 ```bash
-python run_measurement_validation_tests.py --rerun 5800mhz --rerun 2450mhz
+python scripts/measurement_validation/run_measurement_validation_tests.py --rerun 5800mhz --rerun 2450mhz
 ```
 This will run all 5800 MHz and 2450 MHz cases, regardless of existing artifacts.
 
 ### Regenerate all artifacts
 ```bash
-python run_measurement_validation_tests.py --regenerate-artifacts
+python scripts/measurement_validation/run_measurement_validation_tests.py --regenerate-artifacts
 ```
 This will recompute all test cases and overwrite existing artifacts.
 
 ### Save visualization plots
 ```bash
-python run_measurement_validation_tests.py --save-plots
+python scripts/measurement_validation/run_measurement_validation_tests.py --save-plots
 ```
 This will save diagnostic plots (loader comparison, registration overlay, gamma maps) for each test case.
 
 ### Combine options
 ```bash
-python run_measurement_validation_tests.py --rerun 5800mhz --save-plots
+python scripts/measurement_validation/run_measurement_validation_tests.py --rerun 5800mhz --save-plots
 ```
 
 ## Output Structure
@@ -131,12 +131,12 @@ Example structure:
 
 Generate the combined interactive dashboard from the per-frequency JSON reports:
 ```bash
-python generate_and_open_measurement_validation_dashboard.py --no-open
+python scripts/measurement_validation/generate_and_open_measurement_validation_dashboard.py --no-open
 ```
 
 Or run the HTML generator directly:
 ```bash
-python generate_measurement_validation_report_html.py \
+python scripts/measurement_validation/generate_measurement_validation_report_html.py \
   --input-glob tests/artifacts/measurement_validation/reports/measurement_validation_report_*mhz.json \
   --output tests/artifacts/measurement_validation/reports/measurement_validation_dashboard.html
 ```

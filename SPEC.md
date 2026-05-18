@@ -62,7 +62,7 @@ Case IDs follow the pattern `{freq_mhz}_{dist}mm_{mass}_{power}dbm_{index}` (e.g
 - `noise_floor`: adaptive via C7 — `0.01 W/kg` when `power_level_dbm ≤ 9`, else `0.05 W/kg`
 - **Pass criterion: 100 % gamma pass rate** (`failed_pixel_count == 0`). See V11.
 
-**HTML report** (`generate_measurement_validation_report_html.py`): produced from artifact JSON files; filterable by band, power level, pass/fail. Default thresholds: `scaling_error < 10 %`, `gamma_pass_rate = 100 %`.
+**HTML report** (`scripts/measurement_validation/generate_measurement_validation_report_html.py`): produced from artifact JSON files; filterable by band, power level, pass/fail. Default thresholds: `scaling_error < 10 %`, `gamma_pass_rate = 100 %`.
 
 ## §I Interface
 

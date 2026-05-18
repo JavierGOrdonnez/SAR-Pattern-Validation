@@ -31,12 +31,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    repo_root = Path(__file__).resolve().parent
+    script_dir = Path(__file__).resolve().parent
+    repo_root = script_dir.parent.parent
     output_path = (repo_root / args.output).resolve()
 
     cmd = [
         sys.executable,
-        str(repo_root / "generate_measurement_validation_report_html.py"),
+        str(script_dir / "generate_measurement_validation_report_html.py"),
         "--input-glob",
         args.input_glob,
         "--output",

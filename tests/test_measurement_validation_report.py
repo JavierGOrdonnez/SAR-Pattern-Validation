@@ -8,7 +8,12 @@ from typing import Any
 import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
-_DASHBOARD_SCRIPT = _REPO_ROOT / "generate_measurement_validation_report_html.py"
+_DASHBOARD_SCRIPT = (
+    _REPO_ROOT
+    / "scripts"
+    / "measurement_validation"
+    / "generate_measurement_validation_report_html.py"
+)
 
 
 def _load_dashboard_module():
