@@ -525,7 +525,7 @@ class SARImageLoader:
             save_path=reference_save_path,
             show_colorbar=False,
             support_mask=self._reference_support_mask,
-            noise_floor_mask=self._reference_noise_floor_mask,
+            noise_floor_mask=None,
             plotting_config=reference_plotting_config,
         )
 

@@ -376,7 +376,7 @@ def _complete_workflow(config: WorkflowConfig) -> WorkflowResult:
             evaluator.show(
                 gamma_image_save_path=gamma_comparison_image_path,
                 failure_image_save_path=failure_image_path,
-                noise_floor_mask=loader._measured_noise_floor_mask,
+                noise_floor_mask=None,
                 plotting_config=config.plotting,
             )
 
