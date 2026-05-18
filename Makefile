@@ -45,10 +45,10 @@ else
 	uv run pytest -v tests/
 endif
 
-# Run only fast tests (exclude slow and validation markers)
+# Run only fast tests (exclude slow, validation, and notebook_smoke markers)
 tests-fast:
-	@echo "Running fast tests (excluding slow and validation tests)..."
-	uv run pytest -v -m "not slow and not validation" tests/
+	@echo "Running fast tests (excluding slow, validation, and notebook_smoke tests)..."
+	uv run pytest -v -m "not slow and not validation and not notebook_smoke" tests/
 
 # Run slow and integration tests (excludes measurement-validation)
 tests-slow:
@@ -120,7 +120,7 @@ ci:
 	uv run ruff check src/ tests/
 	uv run ty check src/
 	@echo "=== [2/4] fast tests ==="
-	uv run pytest -v -m "not slow and not validation" \
+	uv run pytest -v -m "not slow and not validation and not notebook_smoke" \
 		--cov=src/sar_pattern_validation --cov-report=xml:coverage.xml --cov-report=term \
 		tests/
 	@echo "=== [3/4] slow + integration tests ==="
