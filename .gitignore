@@ -39,6 +39,7 @@ htmlcov/
 # ---- Artifacts ----
 *.png
 !assets/*.png
+!report_template/**/*.png
 *.log
 .codex
 *.zip
