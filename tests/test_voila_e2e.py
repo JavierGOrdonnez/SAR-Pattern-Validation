@@ -529,11 +529,18 @@ def test_same_session_rerun_updates_results_after_power_change(voila_page) -> No
     _set_power_level(voila_page, 17.0)
     _log("   clicking Compare Patterns after power change")
     run_btn.click()
-    _wait_for_workflow_cycle(voila_page)
+    # Power-level-only change takes the fast path (V6): no registration re-run,
+    # no button cycle. Wait for the unique fast-path banner instead.
+    _log("   waiting for fast-path 'Power level updated' banner")
+    voila_page.wait_for_function(
+        "() => document.body.innerText.includes('Power level updated')",
+        timeout=10_000,
+    )
+    _log("   fast-path banner detected")
 
     second_values = _extract_pssar_row_values(voila_page.content())
     assert run_btn.get_attribute("disabled") is None
-    # Verify the run completed and results are present (not a memo-cache early return).
+    # Verify results are present and not a memo-cache early return.
     assert second_values.reference_value == pytest.approx(
         first_values.reference_value, abs=0.01
     ), "Reference pssar should be unchanged (same reference file used)"
@@ -657,8 +664,8 @@ def test_noise_floor_persisted_after_change_and_reload(voila_page) -> None:
     _set_noise_floor(voila_page, _NOISE_FLOOR_DEFAULT)
 
 
-def test_mask_too_small_shows_warning_banner(voila_page, tmp_path) -> None:
-    """Uploading a < 22 mm × 22 mm measured file must show a MASK_TOO_SMALL warning banner."""
+def test_mask_too_small_shows_error_banner(voila_page, tmp_path) -> None:
+    """Uploading a < 22 mm × 22 mm measured file must show a MASK_TOO_SMALL error banner."""
     import numpy as np
     import pandas as pd
 
@@ -686,7 +693,7 @@ def test_mask_too_small_shows_warning_banner(voila_page, tmp_path) -> None:
 
     body_text = voila_page.locator("body").inner_text()
     _log(f"   body snippet: {body_text[:300]!r}")
-    assert "Warning:" in body_text, "Expected a Warning banner for MASK_TOO_SMALL"
-    assert "22 mm" in body_text, "Expected '22 mm' in MASK_TOO_SMALL warning text"
+    assert "Error:" in body_text, "Expected an Error banner for MASK_TOO_SMALL"
+    assert "22 mm" in body_text, "Expected '22 mm' in MASK_TOO_SMALL error text"
 
-    _log("<< test_mask_too_small_shows_warning_banner: pass")
+    _log("<< test_mask_too_small_shows_error_banner: pass")
