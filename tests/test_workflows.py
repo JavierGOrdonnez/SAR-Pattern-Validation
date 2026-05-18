@@ -110,8 +110,8 @@ def test_validate_workflow_config_rejects_invalid_plotting_config() -> None:
 @pytest.mark.parametrize(
     "x_mm,y_mm",
     [
-        (22.0, 100.0),  # x at exclusive lower bound
-        (22.0001, 22.0001),  # both individually valid (sentinel handled in body)
+        (50.0, 100.0),  # x at exclusive lower bound
+        (50.0001, 50.0001),  # both individually valid (sentinel handled in body)
         (601.0, 200.0),  # x above upper bound
         (300.0, 401.0),  # y above upper bound
         (None, 100.0),  # only one of the pair set
@@ -126,10 +126,10 @@ def test_validate_workflow_config_rejects_out_of_range_measurement_area(
         payload["measurement_area_x_mm"] = x_mm
     if y_mm is not None:
         payload["measurement_area_y_mm"] = y_mm
-    if x_mm == 22.0001 and y_mm == 22.0001:
+    if x_mm == 50.0001 and y_mm == 50.0001:
         config = validate_workflow_config(payload)
-        assert config.measurement_area_x_mm == pytest.approx(22.0001)
-        assert config.measurement_area_y_mm == pytest.approx(22.0001)
+        assert config.measurement_area_x_mm == pytest.approx(50.0001)
+        assert config.measurement_area_y_mm == pytest.approx(50.0001)
         return
     with pytest.raises(ConfigValidationError):
         validate_workflow_config(payload)
@@ -624,8 +624,6 @@ def test_v13_measurement_area_restricts_data_not_just_plots(tmp_path: Path) -> N
     """
     import SimpleITK as sitk
 
-    from sar_pattern_validation.errors import WorkflowExecutionError
-
     x = np.arange(-0.150, 0.151, 0.005)
     y = np.arange(-0.150, 0.151, 0.005)
     _, _, meas_Z = gaussian_2d(x, y, x0=0.10, y0=0.10, sx=0.020, sy=0.020, peak=1.0)
@@ -640,12 +638,15 @@ def test_v13_measurement_area_restricts_data_not_just_plots(tmp_path: Path) -> N
         str(measured_csv), str(reference_csv), noise_floor_wkg=0.05
     )
     mask_u8, _ = loader_full.make_metric_masks()
-    assert np.any(sitk.GetArrayFromImage(mask_u8).astype(bool)), (
+    full_pixel_count = int(sitk.GetArrayFromImage(mask_u8).astype(bool).sum())
+    assert full_pixel_count > 0, (
         "Prerequisite failed: full ±150 mm grid must have mask pixels above noise floor"
     )
 
-    # 30×30 mm filter (±15 mm centred at data centroid = (0, 0)):
-    # all SAR within that region is from the Gaussian tail ≈ 0 → mask must be empty.
+    # 30×30 mm filter centred at peak SAR location = (100, 100) mm:
+    # keeps only ±15 mm around the peak; data outside is excluded.
+    # With peak-based centering (V13), the filter captures the peak so the mask
+    # is non-empty, but it must be smaller than the full mask.
     loader_filtered = SARImageLoader(
         str(measured_csv),
         str(reference_csv),
@@ -654,14 +655,21 @@ def test_v13_measurement_area_restricts_data_not_just_plots(tmp_path: Path) -> N
         measurement_area_y_mm=30.0,
     )
     mask_u8_filtered, _ = loader_filtered.make_metric_masks()
-    assert not np.any(sitk.GetArrayFromImage(mask_u8_filtered).astype(bool)), (
-        "V13 violated: measurement_area=30×30 mm must yield an empty measured mask "
-        "(Gaussian peak at 100 mm is outside the ±15 mm area); "
-        "data outside the declared area must not contribute"
+    filtered_pixel_count = int(
+        sitk.GetArrayFromImage(mask_u8_filtered).astype(bool).sum()
+    )
+    assert filtered_pixel_count > 0, (
+        "V13 prerequisite: 30×30 mm area centred at peak must be non-empty"
+    )
+    assert filtered_pixel_count < full_pixel_count, (
+        "V13 violated: measurement_area=30×30 mm must reduce the measured mask area "
+        "(data outside the declared area must not contribute); "
+        f"full={full_pixel_count}, filtered={filtered_pixel_count}"
     )
 
-    # The full workflow must raise EMPTY_MEASURED_MASK for the filtered case.
-    with pytest.raises(WorkflowExecutionError):
+    # complete_workflow enforces the 50 mm minimum (V14/V15); 30 mm must be
+    # rejected at the config-validation layer, not reach the loader.
+    with pytest.raises(ConfigValidationError):
         complete_workflow(
             measured_file_path=str(measured_csv),
             reference_file_path=str(reference_csv),

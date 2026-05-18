@@ -79,12 +79,12 @@ class SARImageLoader:
         measured_df = self._read_csv(measured_path)
         reference_df = self._read_csv(reference_path)
 
-        # V13: filter measured data to the declared measurement area before any
-        # processing so that data outside the area does not contribute to mask
-        # computation, registration, or gamma evaluation.
+        # V13: filter measured data to declared measurement area, centred on peak
+        # SAR location, before mask computation, registration, and gamma evaluation.
         if measurement_area_x_mm is not None and measurement_area_y_mm is not None:
-            cx_m = float(measured_df["x_m"].mean())
-            cy_m = float(measured_df["y_m"].mean())
+            peak_idx = measured_df["sar_wkg"].idxmax()
+            cx_m = float(measured_df.loc[peak_idx, "x_m"])
+            cy_m = float(measured_df.loc[peak_idx, "y_m"])
             x_half_m = float(measurement_area_x_mm) / 2.0 / 1000.0
             y_half_m = float(measurement_area_y_mm) / 2.0 / 1000.0
             measured_df = measured_df[

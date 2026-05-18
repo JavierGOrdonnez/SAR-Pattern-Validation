@@ -299,7 +299,8 @@ def _complete_workflow(config: WorkflowConfig) -> WorkflowResult:
                     f"Noise-filtered measured mask (pre-registration) does not contain a "
                     f"{config.min_inscribed_square_mm:.0f} mm × "
                     f"{config.min_inscribed_square_mm:.0f} mm axis-aligned inscribed "
-                    f"square. The gamma comparison is invalid."
+                    f"square. The gamma comparison is invalid. "
+                    f"If the mask is small due to noise filtering, try lowering the noise floor threshold."
                 ),
             )
             raise WorkflowExecutionError(_issue.message, issue=_issue)
@@ -406,7 +407,8 @@ def _complete_workflow(config: WorkflowConfig) -> WorkflowResult:
                     f"Gamma evaluation mask does not contain a "
                     f"{config.min_inscribed_square_mm:.0f} mm × "
                     f"{config.min_inscribed_square_mm:.0f} mm axis-aligned inscribed "
-                    f"square. The gamma comparison is invalid."
+                    f"square. The gamma comparison is invalid. "
+                    f"If the mask is small due to noise filtering, try lowering the noise floor threshold."
                 ),
             )
             raise WorkflowExecutionError(_issue.message, issue=_issue)
