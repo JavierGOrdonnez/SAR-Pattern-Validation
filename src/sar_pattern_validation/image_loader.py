@@ -67,6 +67,8 @@ class SARImageLoader:
         reference_save_path: Path | None = None,
         measured_save_path: Path | None = None,
         warn: bool = True,
+        measurement_area_x_mm: float | None = None,
+        measurement_area_y_mm: float | None = None,
     ):
         if not measured_path or not reference_path:
             raise ValueError("Both measured_path and reference_path are required.")
@@ -76,6 +78,25 @@ class SARImageLoader:
 
         measured_df = self._read_csv(measured_path)
         reference_df = self._read_csv(reference_path)
+
+        # V13: filter measured data to the declared measurement area before any
+        # processing so that data outside the area does not contribute to mask
+        # computation, registration, or gamma evaluation.
+        if measurement_area_x_mm is not None and measurement_area_y_mm is not None:
+            cx_m = float(measured_df["x_m"].mean())
+            cy_m = float(measured_df["y_m"].mean())
+            x_half_m = float(measurement_area_x_mm) / 2.0 / 1000.0
+            y_half_m = float(measurement_area_y_mm) / 2.0 / 1000.0
+            measured_df = measured_df[
+                ((measured_df["x_m"] - cx_m).abs() <= x_half_m)
+                & ((measured_df["y_m"] - cy_m).abs() <= y_half_m)
+            ].copy()
+            if len(measured_df) == 0:
+                raise CsvFormatError(
+                    f"No measured data falls within the declared measurement area "
+                    f"({measurement_area_x_mm:.0f} × {measurement_area_y_mm:.0f} mm). "
+                    "Check that the area contains the measurement scan region."
+                )
 
         meas_grid = self._to_grid(measured_df, resample_resolution)
         ref_grid = self._to_grid(reference_df, resample_resolution)

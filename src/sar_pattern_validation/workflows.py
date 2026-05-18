@@ -215,6 +215,8 @@ def _complete_workflow(config: WorkflowConfig) -> WorkflowResult:
             noise_floor_wkg=config.noise_floor,
             show_plot=False,
             warn=True,
+            measurement_area_x_mm=config.measurement_area_x_mm,
+            measurement_area_y_mm=config.measurement_area_y_mm,
         )
 
         reference_db, measured_db = loader.get_images()

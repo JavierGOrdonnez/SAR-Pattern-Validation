@@ -607,3 +607,67 @@ def test_complete_workflow_v3_noise_filtered_pixels_excluded_from_gamma_mask(
         "V3 violated: raising noise_floor did not reduce evaluated_pixel_count; "
         "metric mask may not be reaching the evaluator"
     )
+
+
+def test_v13_measurement_area_restricts_data_not_just_plots(tmp_path: Path) -> None:
+    """
+    V13: measurement_area_x_mm/y_mm must filter the measured SAR data fed into
+    SARImageLoader, not merely update the plot window.
+
+    Setup: Measured Gaussian peak at (100, 100) mm on a ±150 mm symmetric grid.
+    Within a 30×30 mm area centred at (0, 0) the SAR is ~0 (Gaussian tail at
+    ~100 mm from the peak with σ=20 mm → < 1e-14 W/kg ≪ noise_floor=0.05 W/kg).
+
+    Without area filter: the full grid has a non-empty noise-floor mask.
+    With area filter:    only data within ±15 mm is kept → mask is empty →
+                         EMPTY_MEASURED_MASK must be raised.
+    """
+    import SimpleITK as sitk
+
+    from sar_pattern_validation.errors import WorkflowExecutionError
+
+    x = np.arange(-0.150, 0.151, 0.005)
+    y = np.arange(-0.150, 0.151, 0.005)
+    _, _, meas_Z = gaussian_2d(x, y, x0=0.10, y0=0.10, sx=0.020, sy=0.020, peak=1.0)
+    _, _, ref_Z = gaussian_2d(x, y, x0=0.00, y0=0.00, sx=0.020, sy=0.020, peak=1.0)
+    measured_csv = tmp_path / "measured.csv"
+    reference_csv = tmp_path / "reference.csv"
+    write_sar_csv(measured_csv, x, y, meas_Z)
+    write_sar_csv(reference_csv, x, y, ref_Z)
+
+    # Full grid: peak at (100, 100) mm is above noise floor → non-empty mask.
+    loader_full = SARImageLoader(
+        str(measured_csv), str(reference_csv), noise_floor_wkg=0.05
+    )
+    mask_u8, _ = loader_full.make_metric_masks()
+    assert np.any(sitk.GetArrayFromImage(mask_u8).astype(bool)), (
+        "Prerequisite failed: full ±150 mm grid must have mask pixels above noise floor"
+    )
+
+    # 30×30 mm filter (±15 mm centred at data centroid = (0, 0)):
+    # all SAR within that region is from the Gaussian tail ≈ 0 → mask must be empty.
+    loader_filtered = SARImageLoader(
+        str(measured_csv),
+        str(reference_csv),
+        noise_floor_wkg=0.05,
+        measurement_area_x_mm=30.0,
+        measurement_area_y_mm=30.0,
+    )
+    mask_u8_filtered, _ = loader_filtered.make_metric_masks()
+    assert not np.any(sitk.GetArrayFromImage(mask_u8_filtered).astype(bool)), (
+        "V13 violated: measurement_area=30×30 mm must yield an empty measured mask "
+        "(Gaussian peak at 100 mm is outside the ±15 mm area); "
+        "data outside the declared area must not contribute"
+    )
+
+    # The full workflow must raise EMPTY_MEASURED_MASK for the filtered case.
+    with pytest.raises(WorkflowExecutionError):
+        complete_workflow(
+            measured_file_path=str(measured_csv),
+            reference_file_path=str(reference_csv),
+            noise_floor=0.05,
+            render_plots=False,
+            show_plot=False,
+            measurement_area_x_mm=30.0,
+            measurement_area_y_mm=30.0,
+        )

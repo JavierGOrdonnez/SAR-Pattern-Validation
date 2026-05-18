@@ -100,6 +100,8 @@ V11: ∀ measurement validation case → the pass criterion is strictly 100 % ga
 
 V12: ∀ fast-track power-level rescale (V6) → "Measured, 30 dBm" and "Scaling Error [%]" must be recomputed from the prior raw measurement at the new power: `new_measured_30dbm = workflow_results.measured_pssar × 10^((old_power_dbm − new_power_dbm)/10)`, `new_scaling_error = (new_measured_30dbm / workflow_results.reference_pssar) − 1`; the psSAR Pass/Fail badge must reflect the recomputed error. E2E gates: `test_fast_track_wrong_power_after_success_shows_failure`, `test_fast_track_fix_power_restores_pass`.
 
+V13: ∀ workflow run where `measurement_area_x_mm` and `measurement_area_y_mm` are set → the measured SAR data must be filtered to `|x_m − cx_m| ≤ measurement_area_x_mm/2000` and `|y_m − cy_m| ≤ measurement_area_y_mm/2000` (where `cx_m`, `cy_m` is the centroid of the full unfiltered measured grid) before mask computation, registration, and gamma evaluation. The plot overlay alone is insufficient — data outside the declared area must not contribute to the gamma result. Applied in `SARImageLoader.__init__`. Unit gate: `test_v13_measurement_area_restricts_data_not_just_plots`.
+
 ## §T Tasks
 
 Stream A — UI adjustments branch (`jgo/ui-adjustments` from `main-melanie`):
@@ -155,6 +157,7 @@ Branches already incorporated before this log began (via GitHub PRs, squash-merg
 
 | ID | Date | Root cause | Invariant |
 |----|------|-----------|-----------|
+| B12 | 2026-05-18 | `measurement_area_x_mm`/`measurement_area_y_mm` passed to `WorkflowConfig` but never forwarded to `SARImageLoader`; full CSV always used for registration and gamma. Plot overlay marks outside data as "Cropped" but gamma silently uses it, producing a spurious 100 % pass even when the declared area contains no SAR above noise floor | V13 |
 | B11 | 2026-05-18 | Fast-track path (V6) passes stale `workflow_results` (computed at old power level) directly to `_update_analytical_results`; only `measured_at_power` (first column) recalculates using the fresh `power_level.value`; "Measured, 30 dBm" and "Scaling Error [%]" stay frozen at prior-run values, so the psSAR Pass/Fail badge reflects the wrong power | V12 |
 | B1 | 2026-05-15 | `noise_floor ≥ measured peak` → empty fixed mask → `VirtualSampledPointSet must have 1 or more points` crash in SimpleITK, surfaced as raw ITK traceback in Voila banner | V1 |
 | B2 | 2026-05-15 | `_complete_workflow` generic `except Exception` handler re-wrapped `WorkflowExecutionError` raised from inside the `try` block, discarding `.issue` | V2 |
