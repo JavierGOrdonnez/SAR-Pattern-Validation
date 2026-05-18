@@ -529,11 +529,18 @@ def test_same_session_rerun_updates_results_after_power_change(voila_page) -> No
     _set_power_level(voila_page, 17.0)
     _log("   clicking Compare Patterns after power change")
     run_btn.click()
-    _wait_for_workflow_cycle(voila_page)
+    # Power-level-only change takes the fast path (V6): no registration re-run,
+    # no button cycle. Wait for the unique fast-path banner instead.
+    _log("   waiting for fast-path 'Power level updated' banner")
+    voila_page.wait_for_function(
+        "() => document.body.innerText.includes('Power level updated')",
+        timeout=10_000,
+    )
+    _log("   fast-path banner detected")
 
     second_values = _extract_pssar_row_values(voila_page.content())
     assert run_btn.get_attribute("disabled") is None
-    # Verify the run completed and results are present (not a memo-cache early return).
+    # Verify results are present and not a memo-cache early return.
     assert second_values.reference_value == pytest.approx(
         first_values.reference_value, abs=0.01
     ), "Reference pssar should be unchanged (same reference file used)"
