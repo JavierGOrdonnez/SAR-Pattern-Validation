@@ -153,6 +153,127 @@ Branches already incorporated before this log began (via GitHub PRs, squash-merg
 | #3  | `69d2bb7` | Run on oSPARC compatibility |
 | #1  | `cc77226` | Fix numerical errors in CI |
 
+## §BH Branch Heritage
+
+Full inventory of features in legacy branches relative to `jgo/adding-measurement-validation-back` (current). Use this section to decide what to port.
+
+### `develop` — unique vs current
+
+| Feature | Commit(s) | Port status |
+|---------|-----------|-------------|
+| Plotting: remove `config.save_colorbars` guard — colorbars always saved | — | not yet |
+| Measurement area: 50 mm minimum + blank=auto semantics (string-typed inputs, None when blank) | `703f410` | not yet |
+| Measurement area: upper-bound validation (x ≤ 600 mm, y ≤ 400 mm) | `703f410` | not yet |
+| RadioButtonGrid `on_filter_changed` callback → reactive run-button enable/disable | — | not yet |
+| `_update_run_button()` method (reacts to filter changes without polling) | — | not yet |
+| WorkflowResults: removed `min_inscribed_square_mm`, `mask_fits_min_inscribed_square`, `issues` fields | — | not yet |
+| `update_images(no_data=True)` call before run starts | — | not yet |
+| Noise floor saved to state file on successful run | — | not yet |
+| Task 6.9 LaTeX report: `src/sar_pattern_validation/report.py`, `report_template/`, `--report` CLI flag | `fcd71da`–`a1d7e83` | not yet |
+| `run_measurement_validation_tests.py` smart rerun script (`--rerun`, `--regenerate-artifacts`, `--save-plots`) | — | not yet |
+| `generate_and_open_measurement_validation_dashboard.py` dashboard runner | — | not yet |
+| `run_pipeline.py` demo run script | — | not yet |
+| `MEASUREMENT_VALIDATION_TESTING.md` test suite docs | — | not yet |
+| CI: notebook smoke test removed from e2e job | — | not yet |
+| CI: `rm -rf test-artifacts` cleanup after CI run | — | not yet |
+| CLI: measurement area help text aligned with 50 mm min | `dab46f2` | not yet |
+| root_validator `skip_on_failure=True` | — | not yet |
+| Log handler: `clear_logs()` method + stream-output format vs display_data | — | not yet |
+
+### `jgo/feedback-changes` — unique vs current
+
+| Feature | Commit(s) | Port status |
+|---------|-----------|-------------|
+| Tasks 6.3, 6.6, 6.8, 6.10 in Voila UI (noise floor dropdown, measurement area, PDF download button) | `ff31ec2` | Task 6.3/6.6 via PRs; 6.10 not yet |
+| PDF download button (Task 6.10) wired to LaTeX report | — | not yet |
+| `.meta.json` loader companion (Task 6.7) — auto-loads measurement parameters from sidecar JSON | `4ed8d23` | not yet |
+| Noise floor dropdown with presets (vs continuous float input) | `a621dcd` | not yet |
+| `--report_template_dir` CLI flag passed from Voila subprocess | `dd93442` | not yet |
+| Additional measurement CSVs: 900 / 1950 / 5800 MHz (from Mark) | `18506d4`–`12c325b` | recovered in T7 |
+| `run_measurement_validation_tests.py` (earlier version) | — | superseded by develop |
+| `MEASUREMENT_VALIDATION_TESTING.md` | — | superseded by develop version |
+
+### `jgo/feedback-changes-clean` / `remotes/github-jgo/main-jgo-old` — unique vs current
+
+| Feature | Commit(s) | Port status |
+|---------|-----------|-------------|
+| `INVARIANTS.md` — coupling invariants doc (INV-001 to INV-007) for agents/team | — | not yet |
+| `.serena/project.yml` + `.serena/memories/` — Serena onboarding and project memories | — | not yet |
+| `MEASUREMENT_VALIDATION_TESTING.md` — test suite documentation | — | superseded by develop |
+| Demo run fixture data | `a7edad5` | not yet |
+| `kill-voila` Makefile target | `0fa5d50` | not yet |
+| Backend log saved to file (`voila_backend.log`) for post-hoc inspection | `6e35806` | not yet |
+| Simultaneous handling of local + production Voila paths | `6e35806` | not yet |
+| Error hints on frontend | `988a68b` | not yet |
+| `ui_state.json` system state file (`notebooks/system_state/`) | — | not yet |
+| `.env` file for local dev | — | not yet |
+| Avoid rerun for identical data (`_last_run_key` pattern) | `da55fe6` | ported (V6) |
+
+### Other branches — unique vs current
+
+| Branch | Unique content | Notes |
+|--------|---------------|-------|
+| `exp/geometry-based-init-default` | Geometry-based initialisation as default registration strategy | Research; not stable |
+| `codex/type-annotate-tests` | Type annotations for test files | Low priority |
+| `port/6.9-report-generation` | LaTeX report (Task 6.9) | Already in `develop` |
+| `jgo/m6t4-gamma-excludes-noise-filtered-pixels` | UI adjustments PR #22; merge of github-melanie/main | Already included via T3/T5 |
+| `6.3-noise-floor` | User-configurable noise floor input | Already merged as PR #15 |
+| `feedback-clean-clean` | `a776bd5` one extra stability commit on top of feedback-changes-clean | Superseded |
+
+### Worktree Inventory
+
+| Path | Branch | Status | Notes |
+|------|--------|--------|-------|
+| `/home/ordonez/osparc-services/sar-pattern-validation` | `jgo/adding-measurement-validation-back` | active | main worktree |
+| `/home/ordonez/osparc-services/sar-pattern-validation-6.3-noise-floor` | `6.3-noise-floor` | prunable | no unique content vs current |
+| `/home/ordonez/osparc-services/sar-pattern-validation.worktrees/feedback-clean-clean` | `feedback-clean-clean` | active | superseded by feedback-changes-clean |
+| `/home/ordonez/osparc-services/sar-pattern-validation.worktrees/jgo-m6t4-gamma-excludes-noise-filtered-pixels` | `jgo/m6t4-gamma-excludes-noise-filtered-pixels` | active | UI adjustments already ported |
+| `.claude/worktrees/agent-a0ac532034dfccd8d` | `worktree-agent-a0ac532034dfccd8d` | locked | stale; all at commit 2e7f706 (feedback-changes-clean era); no unique code |
+| `.claude/worktrees/agent-a45f2c9d070ebcbf0` | `worktree-agent-a45f2c9d070ebcbf0` | locked | stale; same as above |
+| `.claude/worktrees/agent-a481b6abee89b803e` | `worktree-agent-a481b6abee89b803e` | locked | stale; same as above |
+| `.claude/worktrees/agent-a72c75106fb5d802f` | `port/6.9-report-generation` | locked | LaTeX report — content captured in develop |
+| `.claude/worktrees/agent-abcf48a3800c04e84` | `worktree-agent-abcf48a3800c04e84` | locked | stale; one commit ahead (705a304) of other agent worktrees |
+| `.claude/worktrees/agent-ad1b8857c0dfb0c76` | `worktree-agent-ad1b8857c0dfb0c76` | locked | stale; same as a0ac532 |
+| `.claude/worktrees/agent-afaab6b4b3b65e02a` | `worktree-agent-afaab6b4b3b65e02a` | locked | stale; same as a0ac532 |
+| `/tmp/sar-gamma-comparison-geometry-based-init` | `exp/geometry-based-init-default` | prunable | research; not stable |
+| `/tmp/sar-gamma-comparison-type-tests` | `codex/type-annotate-tests` | prunable | low priority |
+| `/tmp/sar-gamma-review-15e1d1f` | detached HEAD `15e1d1f` | prunable | review artifact |
+
+**Cleanup recommendation:** The 6 `worktree-agent-*` locked worktrees under `.claude/worktrees/` and the 3 prunable worktrees in `/tmp/` and `/home/.../sar-pattern-validation-6.3-noise-floor` contain no unique code. Once confirmed safe, `git worktree remove --force` on each. The `feedback-clean-clean` and `jgo-m6t4-*` worktrees should be checked before removal — their branches may have been the source for cherry-picks.
+
+## §T2 Candidate Tasks (from branch diff)
+
+Stream C — Port from `develop`:
+
+| ID | Status | Task | Cites |
+|----|--------|------|-------|
+| C1 | - | Port measurement-area 50 mm minimum + blank=auto semantics from `develop:703f410`: change UI inputs to string-typed (blank=None), error banner when < 50 mm, upper bounds (x≤600, y≤400) | |
+| C2 | - | Port `RadioButtonGrid.on_filter_changed` callback + `_update_run_button()` from `develop` — reactive run-button enable/disable without polling | |
+| C3 | - | Remove `config.save_colorbars` guard in `plotting.py` — always save colorbars (3 call sites) | |
+| C4 | - | Port `update_images(no_data=True)` call before run + save `noise_floor` to state file on success from `develop` | |
+| C5 | - | Port root_validator `skip_on_failure=True` for `FilterOptions.validate_columns` from `develop` | |
+| C6 | - | Port Task 6.9 LaTeX report: `src/sar_pattern_validation/report.py`, `report_template/`, `--report` CLI flag from `port/6.9-report-generation` (also in `develop`) | C4-SPEC |
+| C7 | - | Port `run_measurement_validation_tests.py` smart rerun script from `develop` (with `--rerun`, `--regenerate-artifacts`, `--save-plots`) | |
+| C8 | - | Port `generate_and_open_measurement_validation_dashboard.py` and `MEASUREMENT_VALIDATION_TESTING.md` from `develop` | |
+| C9 | - | CI: remove `notebook_smoke` job from e2e workflow + add `rm -rf test-artifacts` post-CI cleanup | |
+| C10 | - | Port log handler `clear_logs()` method + stream-output format (vs display_data) from `develop` | |
+
+Stream D — Port from `jgo/feedback-changes-clean`:
+
+| ID | Status | Task | Cites |
+|----|--------|------|-------|
+| D1 | - | Add `INVARIANTS.md` from `jgo/feedback-changes-clean` (coupling invariants INV-001–INV-007 for agents/team) | |
+| D2 | - | Add `.serena/project.yml` + `.serena/memories/` from `jgo/feedback-changes-clean` for Serena onboarding | |
+| D3 | - | Port `kill-voila` Makefile target from `jgo/feedback-changes-clean:0fa5d50` | |
+| D4 | - | Port backend log saved to file (`voila_backend.log`) from `jgo/feedback-changes-clean:6e35806` | |
+
+Stream E — Port from `jgo/feedback-changes`:
+
+| ID | Status | Task | Cites |
+|----|--------|------|-------|
+| E1 | - | Port PDF download button (Task 6.10) from `jgo/feedback-changes` — wires `generate_report()` output to a download link in Voila | C6 |
+| E2 | - | Port `.meta.json` companion loader (Task 6.7) from `jgo/feedback-changes:4ed8d23` — auto-loads measurement parameters from sidecar JSON next to measured CSV | |
+
 ## §B Bug Log
 
 | ID | Date | Root cause | Invariant |
