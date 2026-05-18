@@ -18,7 +18,7 @@ C5: LFS scope: measurement CSVs under `data/measurements/` and `data/database/`,
 
 C6: The Voila UI must never re-run registration when only `power_level` changes between consecutive runs (same measured file, same reference, same noise_floor). Power rescaling must be instant (no button cycle). See V6 for the implementation contract.
 
-C7 (planned): Adaptive noise floor for measurement validation — when `power_level_dbm ≤ 3`, use `noise_floor = 0.01 W/kg`; otherwise use `0.05 W/kg`. Rationale: at low transmit power, SAR amplitudes are very small; the 0.05 W/kg cutoff excludes too much valid signal and causes `MASK_TOO_SMALL` / `EMPTY_MEASURED_MASK` failures. Currently all test cases use the default 0.05 W/kg; adaptive logic to be implemented in T12.
+C7: Adaptive noise floor for measurement validation — when `power_level_dbm ≤ 9`, use `noise_floor = 0.01 W/kg`; otherwise use `0.05 W/kg`. Rationale: at low-to-mid transmit power, SAR amplitudes are small enough that the 0.05 W/kg cutoff excludes too much valid signal and causes `MASK_TOO_SMALL` / `EMPTY_MEASURED_MASK` or inflated gamma failures. Threshold `LOW_POWER_THRESHOLD_DBM = 9`; implemented via `_case_noise_floor()` in `test_measurement_validation.py`.
 
 ## §MV Measurement Validation Overview
 
@@ -59,7 +59,8 @@ Case IDs follow the pattern `{freq_mhz}_{dist}mm_{mass}_{power}dbm_{index}` (e.g
 
 **Thresholds** used in `test_measurement_validation.py`:
 - `dose_to_agreement = 10 %`, `distance_to_agreement = 3 mm`, `gamma_cap = 2.0`
-- `noise_floor = 0.05 W/kg` (default; see C7 for planned adaptive override at ≤ 3 dBm)
+- `noise_floor`: adaptive via C7 — `0.01 W/kg` when `power_level_dbm ≤ 9`, else `0.05 W/kg`
+- **Pass criterion: 100 % gamma pass rate** (`failed_pixel_count == 0`). See V11.
 
 **HTML report** (`generate_measurement_validation_report_html.py`): produced from artifact JSON files; filterable by band, power level, pass/fail. Default thresholds: `scaling_error < 10 %`, `gamma_pass_rate = 100 %`.
 
@@ -93,7 +94,9 @@ V8: ∀ E2E CI run → `notebooks/voila.ipynb` must execute in a Jupyter kernel 
 
 V9: ∀ E2E Playwright locator targeting a number input by widget identity → must use label-anchored selector (`.widget-text` filtered by `label:has-text(...)`) not positional `nth()`. Positional indices shift whenever a new widget is added to the same DOM row.
 
-V10 (planned): ∀ `_compute_case` call in `test_measurement_validation.py` → `noise_floor` must be set adaptively: `0.01 W/kg` if `case.power_level_dbm ≤ 3`, else `0.05 W/kg`. Currently not implemented (all cases use `NOISE_FLOOR_WKG = 0.05`). Implement in T12.
+V10: ∀ `_compute_case` call in `test_measurement_validation.py` → `noise_floor` must be set adaptively via `_case_noise_floor(case)`: `NOISE_FLOOR_LOW_POWER_WKG = 0.01 W/kg` if `case.power_level_dbm ≤ LOW_POWER_THRESHOLD_DBM = 9`, else `NOISE_FLOOR_WKG = 0.05 W/kg`. Artifact payload records the actual noise floor used.
+
+V11: ∀ measurement validation case → the pass criterion is strictly 100 % gamma pass rate (`failed_pixel_count == 0`). Any failed pixel in the evaluated region is a test failure. Artifacts are not written for failing cases. The HTML report `gamma_pass_rate_threshold_pct` is a display/filter knob and must not be used to soften the per-case assertion.
 
 ## §T Tasks
 
@@ -116,7 +119,7 @@ Stream B — Measurement validation toolbox (`main-melanie` direct or sub-branch
 | T9 | x | Recover scripts to generate measurement validation HTML report by frequency band and various filtering | C2,C4,I4 |
 | T10 | ~ | Regenerate all `tests/artifacts/measurement_validation/` (`.npz` + `_metrics.json` + plot PNGs) under `main-melanie` HEAD with `REGENERATE_MEASUREMENT_VALIDATION_ARTIFACTS=1 SAVE_MEASUREMENT_VALIDATION_PLOTS=1` | C3,C5,V7 |
 | T11 | . | Run HTML report over regenerated artifacts; document which cases pass / fail / regress vs `develop` baseline; backprop any new failures via §B | V7,I4 |
-| T12 | . | Implement adaptive noise floor in `_compute_case`: `noise_floor = 0.01` when `power_level_dbm ≤ 3`, else `0.05`; re-run T10 for affected cases | C7,V10 |
+| T12 | x | Implement adaptive noise floor in `_compute_case`: `noise_floor = 0.01` when `power_level_dbm ≤ 3`, else `0.05`; re-run T10 for affected cases | C7,V10 |
 
 ## §M Merge Log
 

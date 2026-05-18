@@ -23,6 +23,8 @@ REGENERATE_ENV = "REGENERATE_MEASUREMENT_VALIDATION_ARTIFACTS"
 GAMMA_DIFF_THRESHOLD_ENV = "MEASUREMENT_GAMMA_DIFF_THRESHOLD"
 SAVE_PLOTS_ENV = "SAVE_MEASUREMENT_VALIDATION_PLOTS"
 NOISE_FLOOR_WKG = 0.05
+NOISE_FLOOR_LOW_POWER_WKG = 0.01
+LOW_POWER_THRESHOLD_DBM = 9
 SPACEY_MEASUREMENT_RE = re.compile(
     r"^D(?P<freq>(?:[0-9]+GHz|[0-9]+))_Flat HSL_(?P<distance_mm>[0-9]+) mm_"
     r"(?P<power_dbm>-?[0-9]+) dBm_(?P<mass>1g|10g)_(?P<index>[0-9]+)\.csv$"
@@ -355,6 +357,14 @@ def _first_existing_path(paths: tuple[Path, ...]) -> Path | None:
     return None
 
 
+def _case_noise_floor(case: MeasurementValidationCase) -> float:
+    return (
+        NOISE_FLOOR_LOW_POWER_WKG
+        if case.power_level_dbm <= LOW_POWER_THRESHOLD_DBM
+        else NOISE_FLOOR_WKG
+    )
+
+
 def _artifact_payload(case: MeasurementValidationCase, actual: dict) -> dict:
     return {
         "artifact_version": 1,
@@ -373,7 +383,7 @@ def _artifact_payload(case: MeasurementValidationCase, actual: dict) -> dict:
         },
         "inputs": {
             "power_level_dbm": case.power_level_dbm,
-            "noise_floor_wkg": NOISE_FLOOR_WKG,
+            "noise_floor_wkg": _case_noise_floor(case),
             "dose_to_agreement_percent": 10.0,
             "distance_to_agreement_mm": 3.0,
             "gamma_cap": 2.0,
@@ -509,7 +519,7 @@ def _compute_case(
         reference_file_path=case.reference_csv,
         power_level_dbm=case.power_level_dbm,
         log_level="DEBUG",
-        noise_floor=NOISE_FLOOR_WKG,
+        noise_floor=_case_noise_floor(case),
         dose_to_agreement=10.0,
         distance_to_agreement=3.0,
         gamma_cap=2.0,
