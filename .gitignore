@@ -47,3 +47,4 @@ htmlcov/
 .serena
 .claude
 test-artifacts/
+tests/artifacts/playwright/

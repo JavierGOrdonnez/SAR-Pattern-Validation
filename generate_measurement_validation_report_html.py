@@ -185,7 +185,10 @@ def _build_summary(cases: list[dict[str, Any]]) -> dict[str, Any]:
 def _group_cases_by_frequency(cases: list[dict[str, Any]]) -> list[dict[str, Any]]:
     grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for case in cases:
-        grouped[str(case.get("frequency_key", "unknown"))].append(case)
+        key = str(case.get("frequency_key", "unknown"))
+        if key == "unknown":
+            continue
+        grouped[key].append(case)
 
     frequencies: list[dict[str, Any]] = []
     for _, frequency_cases in sorted(
@@ -360,7 +363,7 @@ def _generate_html(
         parts.append("<div style='overflow:auto; max-height: 62vh;'>")
         parts.append("<table><thead><tr>")
         parts.append(
-            "<th>Case ID</th><th>Status</th><th>Combined</th><th>dBm</th><th>Distance</th><th>Mass</th><th class='small-col'>Evaluated</th><th>Failed Pixels</th><th>Pass Rate</th><th>Scaling Err [%]</th><th class='small-col'>Source JSON</th>"
+            "<th>Case ID</th><th>dBm</th><th>Distance</th><th>Mass</th><th>Noise Floor</th><th class='small-col'>Evaluated</th><th>Failed Pixels</th><th>Pass Rate</th><th>Scaling Err [%]</th><th class='small-col'>Source JSON</th>"
         )
         parts.append("</tr></thead><tbody>")
 
@@ -387,6 +390,11 @@ def _generate_html(
                 else "N/A"
             )
 
+            noise_floor = case.get("noise_floor_wkg")
+            noise_floor_text = (
+                f"{noise_floor} W/kg" if noise_floor is not None else "N/A"
+            )
+
             issues_html = _format_validation_issues_html(case)
             case_id_cell = f"<code>{_escape_html(str(case.get('case_id', '')))}</code>"
             if issues_html:
@@ -398,15 +406,14 @@ def _generate_html(
                 f"data-status='{_escape_html(status)}' "
                 f"data-combined='{_escape_html(combined)}'>"
                 f"<td>{case_id_cell}</td>"
-                f"<td><span class='badge {status_class}'>{_escape_html(status)}</span></td>"
-                f"<td><span class='badge {combined_class}'>{_escape_html(combined)}</span></td>"
                 f"<td>{_escape_html(_format_dbm_label(case.get('power_level_dbm', 'N/A')))}</td>"
                 f"<td>{_escape_html(str(case.get('distance_mm', 'N/A')))} mm</td>"
                 f"<td>{_escape_html(str(case.get('averaging_mass', 'N/A')))}</td>"
+                f"<td>{noise_floor_text}</td>"
                 f"<td class='small-col'>{evaluated:,}</td>"
                 f"<td>{failed_pixels:,}</td>"
-                f"<td><span class='{_pass_rate_class(case_pass_rate)}'>{case_pass_rate_text}</span></td>"
-                f"<td>{scaling_error_text}</td>"
+                f"<td><span class='{_pass_rate_class(case_pass_rate)}'>{case_pass_rate_text}</span> <span class='badge {status_class}'>{_escape_html(status)}</span></td>"
+                f"<td>{scaling_error_text} <span class='badge {combined_class}'>{_escape_html(combined)}</span></td>"
                 f"<td class='small-col'>{_escape_html(str(case.get('_report_name', '')))}</td>"
                 "</tr>"
             )

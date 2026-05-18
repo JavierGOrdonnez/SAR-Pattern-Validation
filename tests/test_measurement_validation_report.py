@@ -166,8 +166,6 @@ class TestDashboardRendering:
             scaling_threshold_pct=10.0,
             gamma_threshold_pct=100.0,
         )
-        # The combined column should appear in the table header.
-        assert "<th>Combined</th>" in html
         # The data-combined attribute on the row reflects the verdict.
         assert f"data-combined='{expected_combined_badge}'" in html
         # The combined-pass summary card is present.

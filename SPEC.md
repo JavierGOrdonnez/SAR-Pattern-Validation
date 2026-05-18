@@ -247,32 +247,32 @@ Stream C — Port from `develop`:
 
 | ID | Status | Task | Cites |
 |----|--------|------|-------|
-| C1 | - | Port measurement-area 50 mm minimum + blank=auto semantics from `develop:703f410`: change UI inputs to string-typed (blank=None), error banner when < 50 mm, upper bounds (x≤600, y≤400) | |
-| C2 | - | Port `RadioButtonGrid.on_filter_changed` callback + `_update_run_button()` from `develop` — reactive run-button enable/disable without polling | |
-| C3 | - | Remove `config.save_colorbars` guard in `plotting.py` — always save colorbars (3 call sites) | |
-| C4 | - | Port `update_images(no_data=True)` call before run + save `noise_floor` to state file on success from `develop` | |
-| C5 | - | Port root_validator `skip_on_failure=True` for `FilterOptions.validate_columns` from `develop` | |
-| C6 | - | Port Task 6.9 LaTeX report: `src/sar_pattern_validation/report.py`, `report_template/`, `--report` CLI flag from `port/6.9-report-generation` (also in `develop`) | C4-SPEC |
-| C7 | - | Port `run_measurement_validation_tests.py` smart rerun script from `develop` (with `--rerun`, `--regenerate-artifacts`, `--save-plots`) | |
-| C8 | - | Port `generate_and_open_measurement_validation_dashboard.py` and `MEASUREMENT_VALIDATION_TESTING.md` from `develop` | |
-| C9 | - | CI: remove `notebook_smoke` job from e2e workflow + add `rm -rf test-artifacts` post-CI cleanup | |
-| C10 | - | Port log handler `clear_logs()` method + stream-output format (vs display_data) from `develop` | |
+| C1 | ✅ done | Port measurement-area 50 mm minimum + blank=auto semantics from `develop:703f410`: change UI inputs to string-typed (blank=None), error banner when < 50 mm, upper bounds (x≤600, y≤400) | |
+| C2 | ✅ done | Port `RadioButtonGrid.on_filter_changed` callback + `_update_run_button()` from `develop` — reactive run-button enable/disable without polling; also `radio_button_grid.layout.flex = "0 0 auto"` layout fix | |
+| C3 | ⛔ skipped | Remove `config.save_colorbars` guard in `plotting.py` — user decision: keep guard | |
+| C4 | ✅ done | Port `update_images(no_data=True)` call before run + save `noise_floor` to state file on success from `develop` | |
+| C5 | ⛔ skipped | Port root_validator `skip_on_failure=True` for `FilterOptions.validate_columns` from `develop` — user decision: keep plain `@root_validator` | |
+| C6 | ⛔ skipped | Port Task 6.9 LaTeX report: `src/sar_pattern_validation/report.py`, `report_template/`, `--report` CLI flag from `port/6.9-report-generation` (also in `develop`) | C4-SPEC |
+| C7 | ✅ done | Port `run_measurement_validation_tests.py` smart rerun script (cherry-picked from `jgo/feedback-changes-clean`) | |
+| C8 | ✅ done | Port `generate_and_open_measurement_validation_dashboard.py` and `MEASUREMENT_VALIDATION_TESTING.md` (cherry-picked from `jgo/feedback-changes-clean`) | |
+| C9 | ✅ done | CI: remove `notebook_smoke` job from e2e workflow; playwright output → `tests/artifacts/playwright/`; add `.gitignore` entry | |
+| C10 | ✅ done | Port log handler `clear_logs()` method + stream-output format (vs display_data) from `develop` | |
 
 Stream D — Port from `jgo/feedback-changes-clean`:
 
 | ID | Status | Task | Cites |
 |----|--------|------|-------|
-| D1 | - | Add `INVARIANTS.md` from `jgo/feedback-changes-clean` (coupling invariants INV-001–INV-007 for agents/team) | |
-| D2 | - | Add `.serena/project.yml` + `.serena/memories/` from `jgo/feedback-changes-clean` for Serena onboarding | |
-| D3 | - | Port `kill-voila` Makefile target from `jgo/feedback-changes-clean:0fa5d50` | |
-| D4 | - | Port backend log saved to file (`voila_backend.log`) from `jgo/feedback-changes-clean:6e35806` | |
+| D1 | ⛔ skipped | Add `INVARIANTS.md` from `jgo/feedback-changes-clean` — user decision: check SPEC instead | |
+| D2 | ⛔ skipped | Add `.serena/project.yml` + `.serena/memories/` from `jgo/feedback-changes-clean` for Serena onboarding | |
+| D3 | ✅ done | Port `kill-voila` Makefile target — already present in `Makefile` from commit `ab7ad56` | |
+| D4 | ✅ done | Port backend log saved to file (`voila_backend.log`) from `jgo/feedback-changes-clean:6e35806` | |
 
 Stream E — Port from `jgo/feedback-changes`:
 
 | ID | Status | Task | Cites |
 |----|--------|------|-------|
-| E1 | - | Port PDF download button (Task 6.10) from `jgo/feedback-changes` — wires `generate_report()` output to a download link in Voila | C6 |
-| E2 | - | Port `.meta.json` companion loader (Task 6.7) from `jgo/feedback-changes:4ed8d23` — auto-loads measurement parameters from sidecar JSON next to measured CSV | |
+| E1 | ⛔ skipped | Port PDF download button (Task 6.10) from `jgo/feedback-changes` — user decision: skip | C6 |
+| E2 | ⛔ skipped | Port `.meta.json` companion loader (Task 6.7) from `jgo/feedback-changes:4ed8d23` — user decision: skip | |
 
 ## §B Bug Log
 
