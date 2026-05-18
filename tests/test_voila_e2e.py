@@ -757,7 +757,7 @@ def test_workflow_produces_square_plots(voila_page, voila_server) -> None:
 
 _NOISE_FLOOR_LABEL_TEXT = "noise floor"
 _NOISE_FLOOR_DEFAULT = 0.05
-_NOISE_FLOOR_MAX = 0.1
+_NOISE_FLOOR_MAX = 0.05
 
 
 def _noise_floor_input(voila_page):
@@ -796,7 +796,7 @@ def test_noise_floor_widget_default_value(voila_page) -> None:
 
 
 def test_noise_floor_widget_clamped_at_max(voila_page) -> None:
-    """Setting noise floor above 0.1 W/kg must be clamped to 0.1 (BoundedFloatText)."""
+    """Setting noise floor above 0.05 W/kg must be clamped to 0.05 (BoundedFloatText)."""
     _log(">> test_noise_floor_widget_clamped_at_max")
     _set_noise_floor(voila_page, 0.5)
     inp = _noise_floor_input(voila_page)
@@ -810,7 +810,7 @@ def test_noise_floor_widget_clamped_at_max(voila_page) -> None:
 def test_noise_floor_persisted_after_change_and_reload(voila_page) -> None:
     """Changing noise floor then reloading the page must restore the saved value."""
     _log(">> test_noise_floor_persisted_after_change_and_reload")
-    target = 0.08
+    target = 0.03
     _set_noise_floor(voila_page, target)
 
     _log(f"   reloading page (timeout={_KERNEL_TIMEOUT}ms)")
