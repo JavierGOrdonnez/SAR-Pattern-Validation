@@ -529,11 +529,18 @@ def test_same_session_rerun_updates_results_after_power_change(voila_page) -> No
     _set_power_level(voila_page, 17.0)
     _log("   clicking Compare Patterns after power change")
     run_btn.click()
-    _wait_for_workflow_cycle(voila_page)
+    # Power-level-only change takes the fast path (V6): no registration re-run,
+    # no button cycle. Wait for the unique fast-path banner instead.
+    _log("   waiting for fast-path 'Power level updated' banner")
+    voila_page.wait_for_function(
+        "() => document.body.innerText.includes('Power level updated')",
+        timeout=10_000,
+    )
+    _log("   fast-path banner detected")
 
     second_values = _extract_pssar_row_values(voila_page.content())
     assert run_btn.get_attribute("disabled") is None
-    # Verify the run completed and results are present (not a memo-cache early return).
+    # Verify results are present and not a memo-cache early return.
     assert second_values.reference_value == pytest.approx(
         first_values.reference_value, abs=0.01
     ), "Reference pssar should be unchanged (same reference file used)"
@@ -581,6 +588,167 @@ def test_uploading_new_data_clears_prior_results(voila_page, tmp_path: Path) -> 
     assert "Reference, 30 dBm" not in page_html
     assert "psSAR" not in page_html
     _log("<< test_uploading_new_data_clears_prior_results: pass")
+
+
+# ---------------------------------------------------------------------------
+# Measurement-area input tests
+# ---------------------------------------------------------------------------
+
+_MEAS_X_DEFAULT = 0.0
+_MEAS_Y_DEFAULT = 0.0
+_MEAS_Y_MIN = 22.01
+
+
+def _meas_area_input(voila_page, label_fragment: str):
+    """Return the number input for a measurement-area widget identified by label text."""
+    return (
+        voila_page.locator(".widget-text")
+        .filter(has=voila_page.locator(f"label:has-text('{label_fragment}')"))
+        .locator("input[type='number']")
+    )
+
+
+def _set_meas_area(voila_page, x: int, y: int) -> None:
+    """Set measurement area x and y inputs via label-anchored locators.
+
+    Uses label text instead of positional nth() so that adding widgets to the
+    same row does not silently break this helper (§V5).
+    """
+    _log(f">> set_meas_area: x={x}, y={y}")
+    for label_fragment, value in [("Meas. area x", x), ("Meas. area y", y)]:
+        inp = _meas_area_input(voila_page, label_fragment)
+        inp.click(click_count=3)
+        inp.type(str(value))
+        inp.press("Tab")
+        voila_page.wait_for_function(
+            "({label, expected}) => {"
+            "  for (const c of document.querySelectorAll('.widget-text')) {"
+            "    const lbl = c.querySelector('label');"
+            "    const inp = c.querySelector('input[type=number]');"
+            "    if (lbl && lbl.textContent.includes(label) && inp)"
+            "      return Number(inp.value) === expected;"
+            "  }"
+            "  return false;"
+            "}",
+            arg={"label": label_fragment, "expected": value},
+            timeout=5_000,
+        )
+    _log("<< set_meas_area: done")
+
+
+def _click_run_expect_error(voila_page, error_fragment: str) -> None:
+    """Click Run and wait for an error banner containing error_fragment."""
+    _log(f">> click_run_expect_error: expecting {error_fragment!r}")
+    run_btn = voila_page.locator("button:has-text('Compare Patterns')")
+    assert run_btn.get_attribute("disabled") is None, "Run button must be enabled"
+    run_btn.click()
+    voila_page.wait_for_function(
+        "(text) => document.body.innerText.includes(text)",
+        arg=error_fragment,
+        timeout=10_000,
+    )
+    _log(f"<< click_run_expect_error: found {error_fragment!r}")
+
+
+class TestMeasurementAreaInputs:
+    def test_measurement_area_between_0_and_22_shows_error(self, voila_page) -> None:
+        _log(">> test_measurement_area_between_0_and_22_shows_error")
+        _ensure_run_button_enabled(voila_page)
+        _set_meas_area(voila_page, 15, 15)
+        _click_run_expect_error(voila_page, "Measurement area must be > 22 mm")
+        _log("<< test_measurement_area_between_0_and_22_shows_error: pass")
+
+    def test_measurement_area_exactly_22_shows_error(self, voila_page) -> None:
+        _log(">> test_measurement_area_exactly_22_shows_error")
+        _ensure_run_button_enabled(voila_page)
+        _set_meas_area(voila_page, 22, 22)
+        _click_run_expect_error(voila_page, "Measurement area must be > 22 mm")
+        _log("<< test_measurement_area_exactly_22_shows_error: pass")
+
+    def test_measurement_area_y_below_22_shows_error(self, voila_page) -> None:
+        _log(">> test_measurement_area_y_below_22_shows_error")
+        _ensure_run_button_enabled(voila_page)
+        _set_meas_area(voila_page, 30, 15)
+        _click_run_expect_error(voila_page, "Measurement area must be > 22 mm")
+        _log("<< test_measurement_area_y_below_22_shows_error: pass")
+
+    def test_measurement_area_x_accepts_upper_bound_600(self, voila_page) -> None:
+        _log(">> test_measurement_area_x_accepts_upper_bound_600")
+        x_input = _meas_area_input(voila_page, "Meas. area x")
+        x_input.click(click_count=3)
+        x_input.type("600")
+        x_input.press("Tab")
+        voila_page.wait_for_function(
+            "({label, expected}) => {"
+            "  for (const c of document.querySelectorAll('.widget-text')) {"
+            "    const lbl = c.querySelector('label');"
+            "    const inp = c.querySelector('input[type=number]');"
+            "    if (lbl && lbl.textContent.includes(label) && inp)"
+            "      return Math.abs(Number(inp.value) - expected) < 0.01;"
+            "  }"
+            "  return false;"
+            "}",
+            arg={"label": "Meas. area x", "expected": 600},
+            timeout=5_000,
+        )
+        val = float(x_input.input_value())
+        assert abs(val - 600.0) < 0.01, f"Expected 600, got {val}"
+        _log("<< test_measurement_area_x_accepts_upper_bound_600: pass")
+
+    def test_measurement_area_y_accepts_upper_bound_400(self, voila_page) -> None:
+        _log(">> test_measurement_area_y_accepts_upper_bound_400")
+        y_input = _meas_area_input(voila_page, "Meas. area y")
+        y_input.click(click_count=3)
+        y_input.type("400")
+        y_input.press("Tab")
+        voila_page.wait_for_function(
+            "({label, expected}) => {"
+            "  for (const c of document.querySelectorAll('.widget-text')) {"
+            "    const lbl = c.querySelector('label');"
+            "    const inp = c.querySelector('input[type=number]');"
+            "    if (lbl && lbl.textContent.includes(label) && inp)"
+            "      return Math.abs(Number(inp.value) - expected) < 0.01;"
+            "  }"
+            "  return false;"
+            "}",
+            arg={"label": "Meas. area y", "expected": 400},
+            timeout=5_000,
+        )
+        val = float(y_input.input_value())
+        assert abs(val - 400.0) < 0.01, f"Expected 400, got {val}"
+        _log("<< test_measurement_area_y_accepts_upper_bound_400: pass")
+
+    def test_measurement_area_zero_auto_allows_run(self, voila_page) -> None:
+        _log(">> test_measurement_area_zero_auto_allows_run")
+        _ensure_run_button_enabled(voila_page)
+        _set_meas_area(voila_page, 0, 0)
+        run_btn = voila_page.locator("button:has-text('Compare Patterns')")
+        assert run_btn.get_attribute("disabled") is None
+        run_btn.click()
+        _wait_for_workflow_cycle(voila_page)
+        assert (
+            "Measurement area must be > 22 mm"
+            not in voila_page.locator("body").inner_text()
+        )
+        _log("<< test_measurement_area_zero_auto_allows_run: pass")
+
+    def test_measurement_area_restored_to_valid_before_run(self, voila_page) -> None:
+        _log(">> test_measurement_area_restored_to_valid_before_run")
+        _set_meas_area(voila_page, 300, 200)
+        _log("<< test_measurement_area_restored_to_valid_before_run: pass")
+
+
+def test_workflow_produces_square_plots(voila_page, voila_server) -> None:
+    from PIL import Image
+
+    _log(">> test_workflow_produces_square_plots")
+    _, workspace_root, _ = voila_server
+    img_path = workspace_root / "images" / "gamma_comparison_image.png"
+    assert img_path.exists(), f"Output image not found at {img_path}"
+    with Image.open(img_path) as img:
+        w, h = img.size
+    assert w == h, f"Expected square plot, got {w}×{h}"
+    _log(f"<< test_workflow_produces_square_plots: pass (size={w}×{h})")
 
 
 # ---------------------------------------------------------------------------
@@ -662,7 +830,7 @@ def test_mask_too_small_shows_error_banner(voila_page, tmp_path) -> None:
     import numpy as np
     import pandas as pd
 
-    _log(">> test_mask_too_small_shows_warning_banner")
+    _log(">> test_mask_too_small_shows_error_banner")
 
     # Generate a 15 mm × 15 mm Gaussian SAR grid — smaller than the 22 mm inscribed-square threshold.
     step = 0.001

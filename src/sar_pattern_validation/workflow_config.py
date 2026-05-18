@@ -34,6 +34,13 @@ DEFAULT_PLOT_WINDOW_MM: Final[tuple[float, float, float, float]] = (
     -120.0,
     120.0,
 )
+
+# Measurement-area bounds (per MGD 2026-04-24 feedback). Inclusive upper bound,
+# exclusive lower bound — a 22 mm × 22 mm 10 g cube face must fit strictly
+# inside the area, so the area itself must exceed 22 mm on each axis.
+MEASUREMENT_AREA_MIN_MM_EXCLUSIVE: Final[float] = 22.0
+MEASUREMENT_AREA_MAX_X_MM: Final[float] = 600.0
+MEASUREMENT_AREA_MAX_Y_MM: Final[float] = 400.0
 DEFAULT_PLOT_FONT_SIZE: Final[float] = 14.0
 DEFAULT_SINGLE_FIGURE_SIZE: Final[tuple[float, float]] = (6.0, 6.0)
 DEFAULT_COMBINED_FIGURE_SIZE: Final[tuple[float, float]] = (12.0, 5.0)
@@ -41,6 +48,9 @@ DEFAULT_PLOT_FIGURE_FACECOLOR: Final[str] = "white"
 DEFAULT_PLOT_DARK_AXES_FACECOLOR: Final[str] = "black"
 DEFAULT_PLOT_LIGHT_AXES_FACECOLOR: Final[str] = "white"
 DEFAULT_PLOT_SAVE_DPI: Final[int] = 200
+DEFAULT_PLOT_NOT_EVALUATED_COLOR: Final[str] = "lightgray"
+DEFAULT_PLOT_CROPPED_DATA_COLOR: Final[str] = "#555555"
+DEFAULT_PLOT_NOISE_FLOOR_COLOR: Final[str] = "#9aa0a6"
 
 ROI_POLICY_CHOICES: Final[tuple[str, ...]] = ("reference_only", "intersection", "none")
 EvaluationRoiPolicy = Literal["reference_only", "intersection", "none"]
@@ -82,6 +92,13 @@ class PlottingConfig:
     dark_axes_facecolor: str = DEFAULT_PLOT_DARK_AXES_FACECOLOR
     light_axes_facecolor: str = DEFAULT_PLOT_LIGHT_AXES_FACECOLOR
     save_dpi: int = DEFAULT_PLOT_SAVE_DPI
+    not_evaluated_color: str = DEFAULT_PLOT_NOT_EVALUATED_COLOR
+    cropped_data_color: str = DEFAULT_PLOT_CROPPED_DATA_COLOR
+    noise_floor_color: str = DEFAULT_PLOT_NOISE_FLOOR_COLOR
+    measurement_area_x_mm: float | None = None
+    measurement_area_y_mm: float | None = None
+    center_x_mm: float = 0.0
+    center_y_mm: float = 0.0
 
 
 @dataclass
@@ -120,4 +137,6 @@ class WorkflowConfig:
     log_level: str = DEFAULT_LOG_LEVEL
     plotting: PlottingConfig = field(default_factory=PlottingConfig)
     output_dir: str | None = None
+    measurement_area_x_mm: float | None = None
+    measurement_area_y_mm: float | None = None
     min_inscribed_square_mm: float = DEFAULT_MIN_INSCRIBED_SQUARE_MM
