@@ -858,3 +858,161 @@ def test_mask_too_small_shows_error_banner(voila_page, tmp_path) -> None:
     assert "22 mm" in body_text, "Expected '22 mm' in MASK_TOO_SMALL error text"
 
     _log("<< test_mask_too_small_shows_error_banner: pass")
+
+
+# ---------------------------------------------------------------------------
+# V12 / B11: fast-track power-level rescale must update Measured@30dBm and
+# Scaling Error, not just the first column. Both tests below are E2E gates
+# for §V12 and will FAIL until the B11 fix lands in voila.ipynb.
+# ---------------------------------------------------------------------------
+
+
+def _extract_pssar_result(page_html: str) -> str:
+    """Return 'Pass' or 'Fail' for the psSAR result badge in the result table."""
+    match = re.search(
+        r"Reference, 30 dBm</th>.*?(Pass|Fail)",
+        page_html,
+        flags=re.S,
+    )
+    assert match is not None, "Could not find psSAR Pass/Fail badge in page HTML"
+    return match.group(1)
+
+
+def test_fast_track_wrong_power_after_success_shows_failure(voila_page) -> None:
+    """V12 / B11: wrong power via fast-track must update Measured@30dBm and Scaling Error → Fail.
+
+    At 1 dBm the normalization factor is ~10^(22/10) ≈ 158× larger than at 23 dBm,
+    so Measured@30dBm balloons and Scaling Error far exceeds ±10 % → psSAR Fail.
+    The bug: _update_analytical_results receives stale workflow_results (computed at
+    23 dBm) so the second and third columns are frozen and the badge stays Pass.
+    """
+    _log(">> test_fast_track_wrong_power_after_success_shows_failure")
+
+    # Upload the original valid CSV (prior test left a tiny CSV — this forces a
+    # full workflow run, not a fast-track, for the 23 dBm baseline below).
+    if _UPLOAD_CSV_PATH.name not in voila_page.locator("body").inner_text():
+        _upload_file(voila_page, _UPLOAD_CSV_PATH)
+    _ensure_run_button_enabled(voila_page)
+    run_btn = voila_page.locator("button:has-text('Compare Patterns')")
+
+    # Baseline: full run at 23 dBm (UI default — data is calibrated for this power).
+    _set_power_level(voila_page, 23.0)
+    _log("   baseline full run at 23 dBm")
+    run_btn.click()
+    _wait_for_workflow_cycle(voila_page)
+
+    baseline = _extract_pssar_row_values(voila_page.content())
+    _log(
+        f"   baseline: measured_30dbm={baseline.measured_30dbm:.3f} W/kg, "
+        f"scaling_error={baseline.scaling_error:.1f}%"
+    )
+    assert abs(baseline.scaling_error) <= 10.0, (
+        f"Baseline run at 23 dBm must pass psSAR "
+        f"(scaling_error={baseline.scaling_error:.1f}%). "
+        "If the example data requires a different power, update _set_power_level call above."
+    )
+
+    # Fast-track at 1 dBm (22 dBm below baseline → Measured@30dBm grows ~158×).
+    _set_power_level(voila_page, 1.0)
+    _log("   fast-track at wrong power 1 dBm")
+    run_btn.click()
+    voila_page.wait_for_function(
+        "() => document.body.innerText.includes('Power level updated')",
+        timeout=10_000,
+    )
+    _log("   'Power level updated' banner confirmed")
+
+    after = _extract_pssar_row_values(voila_page.content())
+    _log(
+        f"   after wrong power: measured_30dbm={after.measured_30dbm:.3f} W/kg, "
+        f"scaling_error={after.scaling_error:.1f}%"
+    )
+
+    # V12: Measured@30dBm must increase substantially (bug: it stays frozen).
+    assert after.measured_30dbm > baseline.measured_30dbm * 10, (
+        f"Measured@30dBm must grow when power drops 23→1 dBm via fast-track "
+        f"(before={baseline.measured_30dbm:.3f}, after={after.measured_30dbm:.3f})"
+    )
+    # V12: Scaling error must now far exceed ±10 % → Fail.
+    assert abs(after.scaling_error) > 10.0, (
+        f"Scaling error must exceed ±10 % at wrong power 1 dBm "
+        f"(got {after.scaling_error:.1f}%)"
+    )
+    assert _extract_pssar_result(voila_page.content()) == "Fail", (
+        "psSAR badge must be Fail when power level change causes huge scaling error"
+    )
+    _log("<< test_fast_track_wrong_power_after_success_shows_failure: pass")
+
+
+def test_fast_track_fix_power_restores_pass(voila_page) -> None:
+    """V12 / B11: correcting power level via fast-track must restore psSAR Pass.
+
+    Sequence: full run at 1 dBm (wrong) → Fail; fast-track to 23 dBm (correct) → Pass.
+    To force the wrong-power run to be a full workflow (not a fast-track from the
+    previous test), we use a slightly different noise_floor (0.06 instead of 0.05)
+    so the run key does not match.  After asserting the fix we restore noise_floor.
+    The bug: fast-track keeps stale scaling_error so the badge stays Fail even after
+    the correct power is entered.
+    """
+    _log(">> test_fast_track_fix_power_restores_pass")
+
+    if _UPLOAD_CSV_PATH.name not in voila_page.locator("body").inner_text():
+        _upload_file(voila_page, _UPLOAD_CSV_PATH)
+    _ensure_run_button_enabled(voila_page)
+    run_btn = voila_page.locator("button:has-text('Compare Patterns')")
+
+    # Full run at wrong power using noise_floor=0.06 so the run key differs from
+    # any prior fast-track entry (which used 0.05) — guarantees a full workflow.
+    _set_noise_floor(voila_page, 0.06)
+    _set_power_level(voila_page, 1.0)
+    _log("   full run at wrong power 1 dBm (noise_floor=0.06)")
+    run_btn.click()
+    _wait_for_workflow_cycle(voila_page)
+
+    wrong = _extract_pssar_row_values(voila_page.content())
+    _log(
+        f"   wrong power run: measured_30dbm={wrong.measured_30dbm:.3f} W/kg, "
+        f"scaling_error={wrong.scaling_error:.1f}%"
+    )
+    assert abs(wrong.scaling_error) > 10.0, (
+        f"Run at 1 dBm must fail psSAR (scaling_error={wrong.scaling_error:.1f}%)"
+    )
+    assert _extract_pssar_result(voila_page.content()) == "Fail", (
+        "psSAR badge must be Fail at wrong power 1 dBm"
+    )
+
+    # Fast-track to correct power (noise_floor stays 0.06 — only power changes).
+    _set_power_level(voila_page, 23.0)
+    _log("   fast-track to correct power 23 dBm")
+    run_btn.click()
+    voila_page.wait_for_function(
+        "() => document.body.innerText.includes('Power level updated')",
+        timeout=10_000,
+    )
+    _log("   'Power level updated' banner confirmed")
+
+    fixed = _extract_pssar_row_values(voila_page.content())
+    _log(
+        f"   after fix: measured_30dbm={fixed.measured_30dbm:.3f} W/kg, "
+        f"scaling_error={fixed.scaling_error:.1f}%"
+    )
+
+    # V12: Measured@30dBm must shrink substantially (bug: it stays frozen at huge value).
+    assert fixed.measured_30dbm < wrong.measured_30dbm / 10, (
+        f"Measured@30dBm must decrease when power rises from 1→23 dBm via fast-track "
+        f"(before={wrong.measured_30dbm:.3f}, after={fixed.measured_30dbm:.3f})"
+    )
+    # V12: Scaling error must now be within ±10 % (Pass).
+    assert abs(fixed.scaling_error) <= 10.0, (
+        f"Scaling error must be within ±10 % at correct power 23 dBm "
+        f"(got {fixed.scaling_error:.1f}%)"
+    )
+    assert _extract_pssar_result(voila_page.content()) == "Pass", (
+        "psSAR badge must be Pass when power level is corrected to 23 dBm"
+    )
+    body_text = voila_page.locator("body").inner_text()
+    assert "Pass rate" in body_text, "Gamma pattern pass-rate section must be present"
+
+    # Restore noise_floor to default so subsequent tests are not affected.
+    _set_noise_floor(voila_page, _NOISE_FLOOR_DEFAULT)
+    _log("<< test_fast_track_fix_power_restores_pass: pass")

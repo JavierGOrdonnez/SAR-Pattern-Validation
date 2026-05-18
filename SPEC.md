@@ -98,6 +98,8 @@ V10: ∀ `_compute_case` call in `test_measurement_validation.py` → `noise_flo
 
 V11: ∀ measurement validation case → the pass criterion is strictly 100 % gamma pass rate (`failed_pixel_count == 0`). Any failed pixel in the evaluated region is a test failure. Artifacts are not written for failing cases. The HTML report `gamma_pass_rate_threshold_pct` is a display/filter knob and must not be used to soften the per-case assertion.
 
+V12: ∀ fast-track power-level rescale (V6) → "Measured, 30 dBm" and "Scaling Error [%]" must be recomputed from the prior raw measurement at the new power: `new_measured_30dbm = workflow_results.measured_pssar × 10^((old_power_dbm − new_power_dbm)/10)`, `new_scaling_error = (new_measured_30dbm / workflow_results.reference_pssar) − 1`; the psSAR Pass/Fail badge must reflect the recomputed error. E2E gates: `test_fast_track_wrong_power_after_success_shows_failure`, `test_fast_track_fix_power_restores_pass`.
+
 ## §T Tasks
 
 Stream A — UI adjustments branch (`jgo/ui-adjustments` from `main-melanie`):
@@ -153,6 +155,7 @@ Branches already incorporated before this log began (via GitHub PRs, squash-merg
 
 | ID | Date | Root cause | Invariant |
 |----|------|-----------|-----------|
+| B11 | 2026-05-18 | Fast-track path (V6) passes stale `workflow_results` (computed at old power level) directly to `_update_analytical_results`; only `measured_at_power` (first column) recalculates using the fresh `power_level.value`; "Measured, 30 dBm" and "Scaling Error [%]" stay frozen at prior-run values, so the psSAR Pass/Fail badge reflects the wrong power | V12 |
 | B1 | 2026-05-15 | `noise_floor ≥ measured peak` → empty fixed mask → `VirtualSampledPointSet must have 1 or more points` crash in SimpleITK, surfaced as raw ITK traceback in Voila banner | V1 |
 | B2 | 2026-05-15 | `_complete_workflow` generic `except Exception` handler re-wrapped `WorkflowExecutionError` raised from inside the `try` block, discarding `.issue` | V2 |
 | B3 | 2026-05-15 | `workflows.py:311` passes `measured_support_u8` (boundary-only) to `_apply_roi_policy` instead of `measured_mask_u8`; noise-filtered (SAR < cutoff) pixels included in gamma eval mask → inflated pass rate (Task 6.4) | V3 |
