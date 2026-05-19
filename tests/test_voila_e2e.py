@@ -973,7 +973,7 @@ def test_fast_track_wrong_power_after_success_shows_failure(voila_page) -> None:
         f"   baseline: measured_30dbm={baseline.measured_30dbm:.3f} W/kg, "
         f"scaling_error={baseline.scaling_error:.1f}%"
     )
-    assert abs(baseline.scaling_error) <= 10.0, (
+    assert abs(baseline.scaling_error) <= 25.0, (
         f"Baseline run at {_FAST_TRACK_PASS_POWER_DBM} dBm must pass psSAR "
         f"(scaling_error={baseline.scaling_error:.1f}%). "
         "If the example data requires a different power, update _FAST_TRACK_PASS_POWER_DBM."
@@ -1000,9 +1000,9 @@ def test_fast_track_wrong_power_after_success_shows_failure(voila_page) -> None:
         f"Measured@30dBm must grow when power drops {_FAST_TRACK_PASS_POWER_DBM}→1 dBm via fast-track "
         f"(before={baseline.measured_30dbm:.3f}, after={after.measured_30dbm:.3f})"
     )
-    # V12: Scaling error must now far exceed ±10 % → Fail.
-    assert abs(after.scaling_error) > 10.0, (
-        f"Scaling error must exceed ±10 % at wrong power 1 dBm "
+    # V12: Scaling error must now far exceed ±25 % → Fail.
+    assert abs(after.scaling_error) > 25.0, (
+        f"Scaling error must exceed ±25 % at wrong power 1 dBm "
         f"(got {after.scaling_error:.1f}%)"
     )
     assert _extract_pssar_result(voila_page.content()) == "Fail", (
@@ -1042,7 +1042,7 @@ def test_fast_track_fix_power_restores_pass(voila_page) -> None:
         f"   wrong power run: measured_30dbm={wrong.measured_30dbm:.3f} W/kg, "
         f"scaling_error={wrong.scaling_error:.1f}%"
     )
-    assert abs(wrong.scaling_error) > 10.0, (
+    assert abs(wrong.scaling_error) > 25.0, (
         f"Run at 1 dBm must fail psSAR (scaling_error={wrong.scaling_error:.1f}%)"
     )
     assert _extract_pssar_result(voila_page.content()) == "Fail", (
@@ -1070,9 +1070,9 @@ def test_fast_track_fix_power_restores_pass(voila_page) -> None:
         f"Measured@30dBm must decrease when power rises from 1→{_FAST_TRACK_PASS_POWER_DBM} dBm via fast-track "
         f"(before={wrong.measured_30dbm:.3f}, after={fixed.measured_30dbm:.3f})"
     )
-    # V12: Scaling error must now be within ±10 % (Pass).
-    assert abs(fixed.scaling_error) <= 10.0, (
-        f"Scaling error must be within ±10 % at correct power {_FAST_TRACK_PASS_POWER_DBM} dBm "
+    # V12/V18: Scaling error must now be within ±25 % (Pass).
+    assert abs(fixed.scaling_error) <= 25.0, (
+        f"Scaling error must be within ±25 % at correct power {_FAST_TRACK_PASS_POWER_DBM} dBm "
         f"(got {fixed.scaling_error:.1f}%)"
     )
     assert _extract_pssar_result(voila_page.content()) == "Pass", (

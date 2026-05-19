@@ -104,11 +104,15 @@ V13: ∀ workflow run where `measurement_area_x_mm` and `measurement_area_y_mm` 
 
 V14: `measurement_area_x` and `measurement_area_y` Voila widgets must be `widgets.BoundedIntText` (not `widgets.Text`) so they emit `input[type='number']`; `value=0` encodes "auto" (no crop); min=0, max=600/400 enforced by widget. V9 label-anchored selector relies on `input[type='number']`. Gate: all 7 `TestMeasurementAreaInputs` E2E tests.
 
-V15: V12 fast-track E2E tests must reference the baseline passing power via a named constant `_FAST_TRACK_PASS_POWER_DBM`; value must satisfy `|psSAR_scaling_error(measured_sSAR1g.csv, P)| ≤ 10 %`. Current correct value: 21 dBm (scaling_error ≈ −0.5 %). Gate: `test_fast_track_wrong_power_after_success_shows_failure`, `test_fast_track_fix_power_restores_pass`.
+V15: V12 fast-track E2E tests must reference the baseline passing power via a named constant `_FAST_TRACK_PASS_POWER_DBM`; value must satisfy `|psSAR_scaling_error(measured_sSAR1g.csv, P)| ≤ 25 %` (per V18). Current correct value: 21 dBm (scaling_error ≈ −0.5 %). Gate: `test_fast_track_wrong_power_after_success_shows_failure`, `test_fast_track_fix_power_restores_pass`.
 
 V16: ∀ Compare Patterns click that triggers a full workflow rerun → `result_table.value` must be set to `""` before `update_images(no_data=True)`; the result table must be empty while the run button is disabled, and non-empty once the cycle completes. Gate: `test_result_table_clears_on_rerun_then_repopulates`.
 
 V17: `WorkflowResult` must carry `measured_peak_wkg: float` (= `loader.measured_peak`, noise-filtered max sSAR at measurement power); "Measured, {power} dBm" cell in `_update_analytical_results` must read `workflow_result.measured_peak_wkg` directly — never derive from `measured_pssar` via `×10^((power−30)/10)`. Prevents incorrect display when widget power at display time differs from the power used in the workflow run. Gate: unit test asserting displayed value equals `loader.measured_peak` for a known CSV.
+
+V18: psSAR pass/fail badge (`_update_analytical_results`, notebook cell 11, `pssar_pass` variable) must apply threshold `abs(scaling_error × 100) ≤ 25.0 %` per issue #11 (changed from 10 %). Gate: E2E `test_fast_track_wrong_power_after_success_shows_failure` and `test_fast_track_fix_power_restores_pass` boundary assertions updated to 25.0; `test_fast_track_wrong_power_after_success_shows_failure` must still show Fail at 1 dBm (scaling_error ≈ 9844 %).
+
+V19: when `measurement_area_x_mm` and `measurement_area_y_mm` are specified, the data-filter center and plot window center must be the midpoint of the imported measured grid (`cx_m = (x_max + x_min) / 2`, `cy_m = (y_max + y_min) / 2`) rather than the peak-SAR row. V13 filter criterion amended: `|x_m − cx_m| ≤ x_half_m` where `cx_m` = data midpoint. Prevents half-empty plot window when the peak is near the scan boundary. Locus: `image_loader.py:85-87`.
 
 ## §T Tasks
 
@@ -142,6 +146,8 @@ Stream C — GitHub issue tracker (branch `jgo/m6t4-gamma-excludes-noise-filtere
 | T14 | x | #7: rename axis labels `$x_e$`,`$y_e$` → `$x'_r$`,`$y'_r$` in "Reference, After Registration" and following panels (`plotting.py:77,442,507`; `image_loader.py:548`) | C2 |
 | T15 | . | #8: update 1-page PDF report template to revised Overleaf version — colleague task | C4 |
 | T16 | x | #9: add `measured_peak_wkg` to `WorkflowResult` (`workflows.py`); populate from `loader.measured_peak`; update `_update_analytical_results` to display it directly as "Measured, {power} dBm" rather than round-tripping through 30 dBm | V17 |
+| T17 | x | #11: change psSAR pass/fail threshold from 10 % to 25 % — notebook cell 11 `pssar_pass`; E2E boundary assertions in `test_fast_track_*` | V18 |
+| T18 | . | #12: center measurement area window on imported data midpoint rather than peak-SAR location — amend `image_loader.py:85-87` and V13 | V19 |
 
 ## §M Merge Log
 
@@ -312,3 +318,4 @@ Stream E — Port from `jgo/feedback-changes`:
 | B14 | 2026-05-18 | Fast-track E2E tests hardcoded `23.0` dBm as "correct power" for `measured_sSAR1g.csv`; at 23 dBm `scaling_error = −37.3 %` → assertion `\|scaling_error\| ≤ 10 %` fails; correct power is 21 dBm (`scaling_error ≈ −0.5 %`; `raw_peak ≈ 5.23 W/kg × 10^(9/10) ≈ 41.5 W/kg ≈ reference 41.76 W/kg`) | V15 |
 | B15 | 2026-05-18 | On a second Compare Patterns click `result_table.value` was not cleared; stale result table stayed visible while images were blanked, giving a misleading mixed state during the run | V16 |
 | B16 | 2026-05-19 | "Measured, {power} dBm" psSAR cell derived via `measured_pssar × 10^((run_power − 30)/10)` (round-trip through 30 dBm) instead of storing the at-power peak; `WorkflowResult` has no `measured_peak_wkg` field, so the current widget power (which may differ from run power in fast-track) silently corrupts the displayed value | V17 |
+| B17 | 2026-05-19 | measurement area window centered on peak-SAR location (`image_loader.py:86`, per V13) rather than the midpoint of the imported measured grid; when the measurement scan is asymmetric (peak near boundary), up to half the plot window shows empty space outside the actual scan range | V19 |
