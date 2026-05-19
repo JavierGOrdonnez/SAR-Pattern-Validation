@@ -892,7 +892,8 @@ def test_result_table_clears_on_rerun_then_repopulates(voila_page) -> None:
     # Force a different run key so the second click triggers a full rerun
     # (not the 'already match' early return).  Toggling noise_floor briefly
     # changes the key and restores it so the test leaves the page clean.
-    _set_noise_floor(voila_page, 0.06)
+    # Use 0.03: the widget max is 0.05 so 0.06 would clamp to 0.05 (= same key).
+    _set_noise_floor(voila_page, 0.03)
 
     # Second run: click and immediately check the table clears while running.
     _log("   clicking Compare Patterns for second run")
@@ -1027,11 +1028,12 @@ def test_fast_track_fix_power_restores_pass(voila_page) -> None:
     _ensure_run_button_enabled(voila_page)
     run_btn = voila_page.locator("button:has-text('Compare Patterns')")
 
-    # Full run at wrong power using noise_floor=0.06 so the run key differs from
+    # Full run at wrong power using noise_floor=0.03 so the run key differs from
     # any prior fast-track entry (which used 0.05) — guarantees a full workflow.
-    _set_noise_floor(voila_page, 0.06)
+    # Use 0.03, not 0.06: the widget max is 0.05 so 0.06 would clamp to 0.05 (= same key).
+    _set_noise_floor(voila_page, 0.03)
     _set_power_level(voila_page, 1.0)
-    _log("   full run at wrong power 1 dBm (noise_floor=0.06)")
+    _log("   full run at wrong power 1 dBm (noise_floor=0.03)")
     run_btn.click()
     _wait_for_workflow_cycle(voila_page)
 

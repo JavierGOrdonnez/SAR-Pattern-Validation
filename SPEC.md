@@ -108,6 +108,8 @@ V15: V12 fast-track E2E tests must reference the baseline passing power via a na
 
 V16: ∀ Compare Patterns click that triggers a full workflow rerun → `result_table.value` must be set to `""` before `update_images(no_data=True)`; the result table must be empty while the run button is disabled, and non-empty once the cycle completes. Gate: `test_result_table_clears_on_rerun_then_repopulates`.
 
+V17: `WorkflowResult` must carry `measured_peak_wkg: float` (= `loader.measured_peak`, noise-filtered max sSAR at measurement power); "Measured, {power} dBm" cell in `_update_analytical_results` must read `workflow_result.measured_peak_wkg` directly — never derive from `measured_pssar` via `×10^((power−30)/10)`. Prevents incorrect display when widget power at display time differs from the power used in the workflow run. Gate: unit test asserting displayed value equals `loader.measured_peak` for a known CSV.
+
 ## §T Tasks
 
 Stream A — UI adjustments branch (`jgo/ui-adjustments` from `main-melanie`):
@@ -139,6 +141,7 @@ Stream C — GitHub issue tracker (branch `jgo/m6t4-gamma-excludes-noise-filtere
 | T13 | x | #6: fix Pass legend color in gamma pass/fail map — match actual pass-region white (`plotting.py:518`) | C2 |
 | T14 | x | #7: rename axis labels `$x_e$`,`$y_e$` → `$x'_r$`,`$y'_r$` in "Reference, After Registration" and following panels (`plotting.py:77,442,507`; `image_loader.py:548`) | C2 |
 | T15 | . | #8: update 1-page PDF report template to revised Overleaf version — colleague task | C4 |
+| T16 | x | #9: add `measured_peak_wkg` to `WorkflowResult` (`workflows.py`); populate from `loader.measured_peak`; update `_update_analytical_results` to display it directly as "Measured, {power} dBm" rather than round-tripping through 30 dBm | V17 |
 
 ## §M Merge Log
 
@@ -308,3 +311,4 @@ Stream E — Port from `jgo/feedback-changes`:
 | B13 | 2026-05-18 | `measurement_area_x/y` widgets created as `widgets.Text` (renders `input[type='text']`); `_meas_area_input` selector targets `input[type='number']` → all 7 `TestMeasurementAreaInputs` timeout; auto-detect logic used empty-string check incompatible with `BoundedIntText.value=0` | V14 |
 | B14 | 2026-05-18 | Fast-track E2E tests hardcoded `23.0` dBm as "correct power" for `measured_sSAR1g.csv`; at 23 dBm `scaling_error = −37.3 %` → assertion `\|scaling_error\| ≤ 10 %` fails; correct power is 21 dBm (`scaling_error ≈ −0.5 %`; `raw_peak ≈ 5.23 W/kg × 10^(9/10) ≈ 41.5 W/kg ≈ reference 41.76 W/kg`) | V15 |
 | B15 | 2026-05-18 | On a second Compare Patterns click `result_table.value` was not cleared; stale result table stayed visible while images were blanked, giving a misleading mixed state during the run | V16 |
+| B16 | 2026-05-19 | "Measured, {power} dBm" psSAR cell derived via `measured_pssar × 10^((run_power − 30)/10)` (round-trip through 30 dBm) instead of storing the at-power peak; `WorkflowResult` has no `measured_peak_wkg` field, so the current widget power (which may differ from run power in fast-track) silently corrupts the displayed value | V17 |

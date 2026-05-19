@@ -81,6 +81,7 @@ class WorkflowResult:
     reference_image_path: Path | None
     measured_image_path: Path | None
     aligned_measured_path: Path | None
+    measured_peak_wkg: float
     measured_pssar: float
     reference_pssar: float
     scaling_error: float
@@ -434,6 +435,7 @@ def _complete_workflow(config: WorkflowConfig) -> WorkflowResult:
             reference_image_path=reference_image_save_path,
             measured_image_path=measured_image_save_path,
             aligned_measured_path=aligned_meas_save_path,
+            measured_peak_wkg=loader.measured_peak,
             measured_pssar=loader.measured_peak_30dbm,
             reference_pssar=loader.reference_peak,
             scaling_error=loader.scaling_error,

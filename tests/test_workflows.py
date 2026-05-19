@@ -679,3 +679,35 @@ def test_v13_measurement_area_restricts_data_not_just_plots(tmp_path: Path) -> N
             measurement_area_x_mm=30.0,
             measurement_area_y_mm=30.0,
         )
+
+
+@pytest.mark.slow
+def test_workflow_result_carries_measured_peak_wkg(tmp_path: Path) -> None:
+    """V17: WorkflowResult.measured_peak_wkg must equal loader.measured_peak directly."""
+    import pandas as pd
+
+    measured_csv, reference_csv = _write_synthetic_workflow_pair(tmp_path)
+
+    power_dbm = 10.0
+    noise_floor = 0.05
+    result = complete_workflow(
+        measured_file_path=str(measured_csv),
+        reference_file_path=str(reference_csv),
+        noise_floor=noise_floor,
+        power_level_dbm=power_dbm,
+        render_plots=False,
+        show_plot=False,
+    )
+
+    df = pd.read_csv(measured_csv)
+    sar_col = next(c for c in df.columns if "sar" in c.lower() or "wkg" in c.lower())
+    raw_peak = float(df[sar_col].max())
+
+    assert result.measured_peak_wkg > 0.0
+    assert result.measured_peak_wkg <= raw_peak + 1e-9, (
+        "measured_peak_wkg must not exceed the raw CSV max"
+    )
+    at_power_via_roundtrip = result.measured_pssar * (10 ** ((power_dbm - 30.0) / 10.0))
+    assert abs(result.measured_peak_wkg - at_power_via_roundtrip) < 1e-6, (
+        "measured_peak_wkg must equal the at-power peak (consistent with measured_pssar)"
+    )
