@@ -100,7 +100,7 @@ V11: ∀ measurement validation case → the pass criterion is strictly 100 % ga
 
 V12: ∀ fast-track power-level rescale (V6) → "Measured, 30 dBm" and "Scaling Error [%]" must be recomputed from the prior raw measurement at the new power: `new_measured_30dbm = workflow_results.measured_pssar × 10^((old_power_dbm − new_power_dbm)/10)`, `new_scaling_error = (new_measured_30dbm / workflow_results.reference_pssar) − 1`; the psSAR Pass/Fail badge must reflect the recomputed error. E2E gates: `test_fast_track_wrong_power_after_success_shows_failure`, `test_fast_track_fix_power_restores_pass`.
 
-V13: ∀ workflow run where `measurement_area_x_mm` and `measurement_area_y_mm` are set → the measured SAR data must be filtered to `|x_m − cx_m| ≤ measurement_area_x_mm/2000` and `|y_m − cy_m| ≤ measurement_area_y_mm/2000` (where `cx_m`, `cy_m` is the **peak-SAR location** — row of `sar_wkg` maximum — of the full unfiltered measured grid) before mask computation, registration, and gamma evaluation. The plot overlay alone is insufficient — data outside the declared area must not contribute to the gamma result. Applied in `SARImageLoader.__init__`. Unit gate: `test_v13_measurement_area_restricts_data_not_just_plots`.
+V13: ∀ workflow run where `measurement_area_x_mm` and `measurement_area_y_mm` are set → the measured SAR data must be filtered to `|x_m − cx_m| ≤ measurement_area_x_mm/2000` and `|y_m − cy_m| ≤ measurement_area_y_mm/2000` (where `cx_m`, `cy_m` is the **data midpoint** — `(x_min+x_max)/2`, `(y_min+y_max)/2` of the full unfiltered measured grid, per V19) before mask computation, registration, and gamma evaluation. The plot overlay alone is insufficient — data outside the declared area must not contribute to the gamma result. Applied in `SARImageLoader.__init__`. Unit gate: `test_v13_measurement_area_restricts_data_not_just_plots`.
 
 V14: `measurement_area_x` and `measurement_area_y` Voila widgets must be `widgets.BoundedIntText` (not `widgets.Text`) so they emit `input[type='number']`; `value=0` encodes "auto" (no crop); min=0, max=600/400 enforced by widget. V9 label-anchored selector relies on `input[type='number']`. Gate: all 7 `TestMeasurementAreaInputs` E2E tests.
 
@@ -115,6 +115,8 @@ V18: psSAR pass/fail badge (`_update_analytical_results`, notebook cell 11, `pss
 V19: when `measurement_area_x_mm` and `measurement_area_y_mm` are specified, the data-filter center and plot window center must be the midpoint of the imported measured grid (`cx_m = (x_max + x_min) / 2`, `cy_m = (y_max + y_min) / 2`) rather than the peak-SAR row. V13 filter criterion amended: `|x_m − cx_m| ≤ x_half_m` where `cx_m` = data midpoint. Prevents half-empty plot window when the peak is near the scan boundary. Locus: `image_loader.py:85-87`.
 
 V20: `noise_floor = 0.0` is a valid input meaning "no noise filtering — all support pixels participate in gamma evaluation"; `WorkflowSchema.noise_floor` must accept `ge=0` (not `gt=0`). `SARImageLoader` already handles zero correctly (`cutoff_wkg = 0`, all-support mask). Gate: schema-level test `test_workflow_schema_accepts_zero_noise_floor`.
+
+V21: overlay legends in Rigid Registration Overlay and Gamma Pass/Fail Map must use `fontsize=7`, `framealpha=0.0`, and label "Noise" (not "Below noise floor") for the noise-floor patch. Reduces overlap with measurement area in tight plots. Locus: `plotting.py:_apply_overlay_legend`, `plotting.py:plot_gamma_results`.
 
 ## §T Tasks
 
@@ -149,8 +151,9 @@ Stream C — GitHub issue tracker (branch `jgo/m6t4-gamma-excludes-noise-filtere
 | T15 | . | #8: update 1-page PDF report template to revised Overleaf version — colleague task | C4 |
 | T16 | x | #9: add `measured_peak_wkg` to `WorkflowResult` (`workflows.py`); populate from `loader.measured_peak`; update `_update_analytical_results` to display it directly as "Measured, {power} dBm" rather than round-tripping through 30 dBm | V17 |
 | T17 | x | #11: change psSAR pass/fail threshold from 10 % to 25 % — notebook cell 11 `pssar_pass`; E2E boundary assertions in `test_fast_track_*` | V18 |
-| T18 | . | #12: center measurement area window on imported data midpoint rather than peak-SAR location — amend `image_loader.py:85-87` and V13 | V19 |
+| T18 | x | #12: center measurement area window on imported data midpoint rather than peak-SAR location — amend `image_loader.py:85-87` and V13 | V19 |
 | T19 | x | #13: allow noise_floor = 0 — change `WorkflowSchema.noise_floor` from `gt=0` to `ge=0`; zero means no noise filtering, all support pixels evaluated | V20 |
+| T20 | x | #14: reduce legend overlap — `fontsize=7`, `framealpha=0.0`, rename "Below noise floor" → "Noise" in `_apply_overlay_legend` and `plot_gamma_results` | V21 |
 
 ## §M Merge Log
 
@@ -323,3 +326,4 @@ Stream E — Port from `jgo/feedback-changes`:
 | B16 | 2026-05-19 | "Measured, {power} dBm" psSAR cell derived via `measured_pssar × 10^((run_power − 30)/10)` (round-trip through 30 dBm) instead of storing the at-power peak; `WorkflowResult` has no `measured_peak_wkg` field, so the current widget power (which may differ from run power in fast-track) silently corrupts the displayed value | V17 |
 | B17 | 2026-05-19 | measurement area window centered on peak-SAR location (`image_loader.py:86`, per V13) rather than the midpoint of the imported measured grid; when the measurement scan is asymmetric (peak near boundary), up to half the plot window shows empty space outside the actual scan range | V19 |
 | B18 | 2026-05-19 | `WorkflowSchema.noise_floor` declared `gt=0` (strictly positive) but the widget allows `min=0.0`; entering 0 and clicking Compare Patterns raises Pydantic `ValidationError` shown as a raw error banner — should silently mean "no noise filtering" | V20 |
+| B19 | 2026-05-19 | overlay legend in Rigid Registration Overlay and Gamma Pass/Fail Map uses `fontsize=9` and opaque frame (`framealpha` default ≈ 0.8), occupying too much space and overlapping the measurement area; label "Below noise floor" is verbose | V21 |

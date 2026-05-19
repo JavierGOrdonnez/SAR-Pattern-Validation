@@ -625,26 +625,25 @@ def test_v13_measurement_area_restricts_data_not_just_plots(tmp_path: Path) -> N
     V13: measurement_area_x_mm/y_mm must filter the measured SAR data fed into
     SARImageLoader, not merely update the plot window.
 
-    Setup: Measured Gaussian peak at (100, 100) mm on a ±150 mm symmetric grid.
-    Within a 30×30 mm area centred at (0, 0) the SAR is ~0 (Gaussian tail at
-    ~100 mm from the peak with σ=20 mm → < 1e-14 W/kg ≪ noise_floor=0.05 W/kg).
+    Setup: Measured Gaussian peak at (0, 0) mm on a ±150 mm symmetric grid
+    (midpoint = peak = origin).  A 30×30 mm area centred at the data midpoint
+    keeps only ±15 mm around the origin; data outside is excluded.
 
-    Without area filter: the full grid has a non-empty noise-floor mask.
-    With area filter:    only data within ±15 mm is kept → mask is empty →
-                         EMPTY_MEASURED_MASK must be raised.
+    Without area filter: the full ±150 mm grid has a larger noise-floor mask.
+    With area filter:    only data within ±15 mm is kept → mask is smaller.
     """
     import SimpleITK as sitk
 
     x = np.arange(-0.150, 0.151, 0.005)
     y = np.arange(-0.150, 0.151, 0.005)
-    _, _, meas_Z = gaussian_2d(x, y, x0=0.10, y0=0.10, sx=0.020, sy=0.020, peak=1.0)
+    _, _, meas_Z = gaussian_2d(x, y, x0=0.00, y0=0.00, sx=0.020, sy=0.020, peak=1.0)
     _, _, ref_Z = gaussian_2d(x, y, x0=0.00, y0=0.00, sx=0.020, sy=0.020, peak=1.0)
     measured_csv = tmp_path / "measured.csv"
     reference_csv = tmp_path / "reference.csv"
     write_sar_csv(measured_csv, x, y, meas_Z)
     write_sar_csv(reference_csv, x, y, ref_Z)
 
-    # Full grid: peak at (100, 100) mm is above noise floor → non-empty mask.
+    # Full grid: peak at (0, 0) mm is above noise floor → non-empty mask.
     loader_full = SARImageLoader(
         str(measured_csv), str(reference_csv), noise_floor_wkg=0.05
     )
@@ -654,10 +653,9 @@ def test_v13_measurement_area_restricts_data_not_just_plots(tmp_path: Path) -> N
         "Prerequisite failed: full ±150 mm grid must have mask pixels above noise floor"
     )
 
-    # 30×30 mm filter centred at peak SAR location = (100, 100) mm:
-    # keeps only ±15 mm around the peak; data outside is excluded.
-    # With peak-based centering (V13), the filter captures the peak so the mask
-    # is non-empty, but it must be smaller than the full mask.
+    # 30×30 mm filter centred at data midpoint = (0, 0) mm (same as peak here):
+    # keeps only ±15 mm around the origin; data outside is excluded.
+    # The filter captures the peak so the mask is non-empty, but smaller than full.
     loader_filtered = SARImageLoader(
         str(measured_csv),
         str(reference_csv),
@@ -670,7 +668,7 @@ def test_v13_measurement_area_restricts_data_not_just_plots(tmp_path: Path) -> N
         sitk.GetArrayFromImage(mask_u8_filtered).astype(bool).sum()
     )
     assert filtered_pixel_count > 0, (
-        "V13 prerequisite: 30×30 mm area centred at peak must be non-empty"
+        "V13 prerequisite: 30×30 mm area centred at midpoint must be non-empty"
     )
     assert filtered_pixel_count < full_pixel_count, (
         "V13 violated: measurement_area=30×30 mm must reduce the measured mask area "
@@ -690,6 +688,44 @@ def test_v13_measurement_area_restricts_data_not_just_plots(tmp_path: Path) -> N
             measurement_area_x_mm=30.0,
             measurement_area_y_mm=30.0,
         )
+
+
+def test_v19_measurement_area_centred_at_data_midpoint(tmp_path: Path) -> None:
+    """
+    V19: the measurement area window must be centred on the data midpoint (mean of
+    x/y extents), not on the peak-SAR location.
+
+    Setup: asymmetric grid 50–350 mm (midpoint 200 mm); Gaussian peak at (290, 290) mm
+    with σ=60 mm so the midpoint region has SAR well above noise floor (≈0.33 W/kg).
+
+    A 40×40 mm filter centred at the data midpoint (200 mm) keeps data in
+    ~180–220 mm; one centred at the peak (290 mm) would keep 270–310 mm instead.
+    Verify: filtered loader's measured axes are centred near 200 mm, not near 290 mm.
+    """
+    x = np.arange(0.050, 0.351, 0.005)  # 50–350 mm, midpoint = 200 mm
+    y = np.arange(0.050, 0.351, 0.005)
+    _, _, meas_Z = gaussian_2d(x, y, x0=0.290, y0=0.290, sx=0.060, sy=0.060, peak=1.0)
+    _, _, ref_Z = gaussian_2d(x, y, x0=0.200, y0=0.200, sx=0.060, sy=0.060, peak=1.0)
+    measured_csv = tmp_path / "measured_v19.csv"
+    reference_csv = tmp_path / "reference_v19.csv"
+    write_sar_csv(measured_csv, x, y, meas_Z)
+    write_sar_csv(reference_csv, x, y, ref_Z)
+
+    loader = SARImageLoader(
+        str(measured_csv),
+        str(reference_csv),
+        noise_floor_wkg=0.05,
+        measurement_area_x_mm=40.0,
+        measurement_area_y_mm=40.0,
+    )
+    x_axes = loader._measured_axes_m[0]
+    x_centre_mm = 1000.0 * (float(x_axes.min()) + float(x_axes.max())) / 2.0
+
+    assert abs(x_centre_mm - 200.0) < 30.0, (
+        f"V19 violated: filtered data x-centre should be near grid midpoint 200 mm "
+        f"(midpoint centering), got {x_centre_mm:.1f} mm (peak is at 290 mm — "
+        "peak centering would give ≈290 mm)"
+    )
 
 
 @pytest.mark.slow
