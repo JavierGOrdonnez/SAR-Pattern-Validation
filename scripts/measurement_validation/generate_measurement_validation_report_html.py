@@ -10,7 +10,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Final
 
-DEFAULT_SCALING_ERROR_THRESHOLD_PCT: Final[float] = 10.0
+DEFAULT_SCALING_ERROR_THRESHOLD_PCT: Final[float] = 25.0
 DEFAULT_GAMMA_PASS_RATE_THRESHOLD_PCT: Final[float] = 100.0
 
 

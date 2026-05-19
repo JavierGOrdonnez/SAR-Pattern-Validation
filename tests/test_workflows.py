@@ -80,6 +80,17 @@ def test_validate_workflow_config_rejects_negative_distance() -> None:
         validate_workflow_config({"distance_to_agreement": -1.0})
 
 
+def test_workflow_schema_accepts_zero_noise_floor() -> None:
+    """V20: noise_floor=0 is valid (means no noise filtering)."""
+    config = validate_workflow_config({"noise_floor": 0.0})
+    assert config.noise_floor == 0.0
+
+
+def test_workflow_schema_rejects_negative_noise_floor() -> None:
+    with pytest.raises(ConfigValidationError):
+        validate_workflow_config({"noise_floor": -0.001})
+
+
 def test_validate_workflow_config_accepts_plotting_config() -> None:
     config = validate_workflow_config(
         {

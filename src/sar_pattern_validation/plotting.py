@@ -381,7 +381,7 @@ def _overlay_noise_floor(
     return mpatches.Patch(
         color=config.noise_floor_color,
         alpha=0.45,
-        label="Below noise floor",
+        label="Noise",
     )
 
 
@@ -395,7 +395,13 @@ def _apply_overlay_legend(
     filtered = [h for h in handles if h is not None]
     if not filtered:
         return
-    legend = ax.legend(handles=filtered, loc="lower right", frameon=True, fontsize=9)
+    legend = ax.legend(
+        handles=filtered,
+        loc="lower right",
+        frameon=True,
+        fontsize=7,
+        framealpha=0.0,
+    )
     if on_dark_axes:
         legend.get_frame().set_facecolor(config.dark_axes_facecolor)
         legend.get_frame().set_edgecolor("w")
@@ -521,7 +527,7 @@ def plot_gamma_results(
         ]
         if noise_floor_handle is not None:
             handles.append(noise_floor_handle)
-        ax.legend(handles=handles, loc="lower right")
+        ax.legend(handles=handles, loc="lower right", fontsize=7, framealpha=0.0)
         fig.tight_layout()
         _save_or_show(fig, failure_image_save_path, config)
 

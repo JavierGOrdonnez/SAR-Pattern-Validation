@@ -114,6 +114,8 @@ V18: psSAR pass/fail badge (`_update_analytical_results`, notebook cell 11, `pss
 
 V19: when `measurement_area_x_mm` and `measurement_area_y_mm` are specified, the data-filter center and plot window center must be the midpoint of the imported measured grid (`cx_m = (x_max + x_min) / 2`, `cy_m = (y_max + y_min) / 2`) rather than the peak-SAR row. V13 filter criterion amended: `|x_m − cx_m| ≤ x_half_m` where `cx_m` = data midpoint. Prevents half-empty plot window when the peak is near the scan boundary. Locus: `image_loader.py:85-87`.
 
+V20: `noise_floor = 0.0` is a valid input meaning "no noise filtering — all support pixels participate in gamma evaluation"; `WorkflowSchema.noise_floor` must accept `ge=0` (not `gt=0`). `SARImageLoader` already handles zero correctly (`cutoff_wkg = 0`, all-support mask). Gate: schema-level test `test_workflow_schema_accepts_zero_noise_floor`.
+
 ## §T Tasks
 
 Stream A — UI adjustments branch (`jgo/ui-adjustments` from `main-melanie`):
@@ -148,6 +150,7 @@ Stream C — GitHub issue tracker (branch `jgo/m6t4-gamma-excludes-noise-filtere
 | T16 | x | #9: add `measured_peak_wkg` to `WorkflowResult` (`workflows.py`); populate from `loader.measured_peak`; update `_update_analytical_results` to display it directly as "Measured, {power} dBm" rather than round-tripping through 30 dBm | V17 |
 | T17 | x | #11: change psSAR pass/fail threshold from 10 % to 25 % — notebook cell 11 `pssar_pass`; E2E boundary assertions in `test_fast_track_*` | V18 |
 | T18 | . | #12: center measurement area window on imported data midpoint rather than peak-SAR location — amend `image_loader.py:85-87` and V13 | V19 |
+| T19 | x | #13: allow noise_floor = 0 — change `WorkflowSchema.noise_floor` from `gt=0` to `ge=0`; zero means no noise filtering, all support pixels evaluated | V20 |
 
 ## §M Merge Log
 
@@ -319,3 +322,4 @@ Stream E — Port from `jgo/feedback-changes`:
 | B15 | 2026-05-18 | On a second Compare Patterns click `result_table.value` was not cleared; stale result table stayed visible while images were blanked, giving a misleading mixed state during the run | V16 |
 | B16 | 2026-05-19 | "Measured, {power} dBm" psSAR cell derived via `measured_pssar × 10^((run_power − 30)/10)` (round-trip through 30 dBm) instead of storing the at-power peak; `WorkflowResult` has no `measured_peak_wkg` field, so the current widget power (which may differ from run power in fast-track) silently corrupts the displayed value | V17 |
 | B17 | 2026-05-19 | measurement area window centered on peak-SAR location (`image_loader.py:86`, per V13) rather than the midpoint of the imported measured grid; when the measurement scan is asymmetric (peak near boundary), up to half the plot window shows empty space outside the actual scan range | V19 |
+| B18 | 2026-05-19 | `WorkflowSchema.noise_floor` declared `gt=0` (strictly positive) but the widget allows `min=0.0`; entering 0 and clicking Compare Patterns raises Pydantic `ValidationError` shown as a raw error banner — should silently mean "no noise filtering" | V20 |
