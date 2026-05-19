@@ -131,6 +131,15 @@ Stream B — Measurement validation toolbox (`main-melanie` direct or sub-branch
 | T11 | x | Run HTML report over regenerated artifacts; document which cases pass / fail / regress vs `develop` baseline; backprop any new failures via §B | V7,I4 |
 | T12 | x | Implement adaptive noise floor in `_compute_case`: `noise_floor = 0.01` when `power_level_dbm ≤ 3`, else `0.05`; re-run T10 for affected cases | C7,V10 |
 
+Stream C — GitHub issue tracker (branch `jgo/m6t4-gamma-excludes-noise-filtered-pixels`):
+
+| ID | Status | Task | Cites |
+|----|--------|------|-------|
+| T12 | x | #5: remove noise-floor overlay from Reference + gamma panels; `545c487` on this branch | C2,V3 |
+| T13 | x | #6: fix Pass legend color in gamma pass/fail map — match actual pass-region white (`plotting.py:518`) | C2 |
+| T14 | x | #7: rename axis labels `$x_e$`,`$y_e$` → `$x'_r$`,`$y'_r$` in "Reference, After Registration" and following panels (`plotting.py:77,442,507`; `image_loader.py:548`) | C2 |
+| T15 | . | #8: update 1-page PDF report template to revised Overleaf version — colleague task | C4 |
+
 ## §M Merge Log
 
 Records every branch merged into `main-melanie`. Critical for squash-merge workflows: a squash-merge rewrites the tip hash, so once a PR is squash-merged the original branch tip listed here is the only reliable way to know what content was included.

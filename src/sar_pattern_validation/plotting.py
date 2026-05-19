@@ -74,8 +74,8 @@ def show_registration_overlay(
             xlim=(config.window_mm[0], config.window_mm[1]),
             ylim=(config.window_mm[2], config.window_mm[3]),
         )
-        ax.set_xlabel("$x_e$ (mm)")
-        ax.set_ylabel("$y_e$ (mm)")
+        ax.set_xlabel("$x'_r$ (mm)")
+        ax.set_ylabel("$y'_r$ (mm)")
 
         noise_floor_handle = _overlay_noise_floor(
             ax,
@@ -439,8 +439,8 @@ def plot_gamma_results(
         ax.set_title(_two_line_title("Gamma Index"))
         ax.set_xlim(config.window_mm[0], config.window_mm[1])
         ax.set_ylim(config.window_mm[2], config.window_mm[3])
-        ax.set_xlabel("$x_e$ (mm)")
-        ax.set_ylabel("$y_e$ (mm)")
+        ax.set_xlabel("$x'_r$ (mm)")
+        ax.set_ylabel("$y'_r$ (mm)")
         _overlay_measurement_limit_mask(ax, config)
         noise_floor_handle = _overlay_noise_floor(
             ax,
@@ -504,8 +504,8 @@ def plot_gamma_results(
         ax.set_title(_two_line_title("Gamma Pass / Fail Map"))
         ax.set_xlim(config.window_mm[0], config.window_mm[1])
         ax.set_ylim(config.window_mm[2], config.window_mm[3])
-        ax.set_xlabel("$x_e$ (mm)")
-        ax.set_ylabel("$y_e$ (mm)")
+        ax.set_xlabel("$x'_r$ (mm)")
+        ax.set_ylabel("$y'_r$ (mm)")
         _overlay_measurement_limit_mask(ax, config)
         noise_floor_handle = _overlay_noise_floor(
             ax,
@@ -514,9 +514,7 @@ def plot_gamma_results(
             config=config,
         )
         handles = [
-            mpatches.Patch(
-                facecolor=mpl.colormaps["gray"](0.85), edgecolor="k", label="Pass"
-            ),
+            mpatches.Patch(facecolor="white", edgecolor="k", label="Pass"),
             mpatches.Patch(
                 facecolor=mpl.colormaps["Reds"](0.8), edgecolor="k", label="Fail"
             ),
